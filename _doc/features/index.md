@@ -2,17 +2,17 @@
 
 This document outlines the planned features and user stories for the `parse-a-slide` CLI tool.
 
-- [ ] F0: Project Initialization & NPM Setup - Establish the foundational project structure, build tooling, and NPM publishing configurations.
+- [x] F0: Project Initialization & NPM Setup - Establish the foundational project structure, build tooling, and NPM publishing configurations.
 
-  - [ ] S1: Create Core Directory Structure - Set up `src/`, `test/`, `_doc/`, `templates/` folders as per `technical_implementation.md`.
-  - [ ] S2: Initialize `package.json` - Configure with basic project info, scripts (`build`, `test`, `dev`), and dependencies (TypeScript, pnpm, Vitest, yargs, glob, gray-matter, chokidar, fast-glob).
-  - [ ] S3: Configure TypeScript (`tsconfig.json`) - Set up for compilation to `dist/`, including module settings and type checking.
-  - [ ] S4: Configure Vitest - Set up test environment and necessary configurations for unit testing.
-  - [ ] S5: Create `README.md` - Initial project description and usage instructions.
-  - [ ] S6: Create `LICENSE` file - Add an appropriate open-source license (e.g., MIT).
-  - [ ] S7: Set up NPM Publishing Configuration - Define `files` in `package.json`, `.npmignore` if needed, and ensure `main` and `types` fields point to `dist/`.
-  - [ ] S8: Create Basic `src/index.ts` - Placeholder main export for the library.
-  - [ ] S9: Add `.gitignore` - Standard Node.js/TypeScript ignores.
+  - [x] S1: Create Core Directory Structure - Set up `src/`, `test/`, `_doc/`, `templates/` folders as per `technical_implementation.md`.
+  - [x] S2: Initialize `package.json` - Configure with basic project info, scripts (`build`, `test`, `dev`), and dependencies (TypeScript, pnpm, Vitest, yargs, glob, gray-matter, chokidar, fast-glob).
+  - [x] S3: Configure TypeScript (`tsconfig.json`) - Set up for compilation to `dist/`, including module settings and type checking.
+  - [x] S4: Configure Vitest - Set up test environment and necessary configurations for unit testing.
+  - [x] S5: Create `README.md` - Initial project description and usage instructions.
+  - [x] S6: Create `LICENSE` file - Add an appropriate open-source license (e.g., MIT).
+  - [x] S7: Set up NPM Publishing Configuration - Define `files` in `package.json`, `.npmignore` if needed, and ensure `main` and `types` fields point to `dist/`.
+  - [x] S8: Create Basic `src/index.ts` - Placeholder main export for the library.
+  - [x] S9: Add `.gitignore` - Standard Node.js/TypeScript ignores.
 
 - [ ] F1: CLI Application Core - Establish the CLI for user interaction, command/option parsing.
 
