@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest",
-    "dev": "tsc -w"
+    "dev": "tsc -w",
+    "run": "node dist/cli.js"
   },
   "files": [
     "dist",
