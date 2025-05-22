@@ -1,4 +1,20 @@
+import { Argv, ArgumentsCamelCase } from 'yargs'
 import { buildHandler } from '../handlers/build-handler'
+import { BuildCommandOptions, ParsedBuildArgs } from '../../types/cli'
+
+/**
+ * Converts raw yargs arguments to clean BuildCommandOptions
+ */
+function convertToHandlerOptions(args: ArgumentsCamelCase<ParsedBuildArgs>): BuildCommandOptions {
+  return {
+    input: args.input.map(item => String(item)), // Ensure all items are strings
+    outputDir: args['output-dir'],
+    format: args.format,
+    watch: Boolean(args.watch),
+    clean: Boolean(args.clean),
+    verbose: Boolean(args.verbose),
+  }
+}
 
 // Export a basic command module that can be used directly with yargs.command()
 export const buildCommand = {
@@ -41,5 +57,9 @@ export const buildCommand = {
       default: false,
     },
   },
-  handler: buildHandler,
+  // Convert yargs args to clean options before passing to handler
+  handler: async (args: ArgumentsCamelCase<ParsedBuildArgs>) => {
+    const options = convertToHandlerOptions(args)
+    return buildHandler(options)
+  },
 }
