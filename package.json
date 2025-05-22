@@ -5,15 +5,15 @@
   "author": "Adam Jelinek",
   "license": "MIT",
   "bin": {
-    "parse-a-slide": "dist/cli.js"
+    "parse-a-slide": "dist/cli/index.js"
   },
-  "main": "dist/cli.js",
-  "types": "dist/cli.d.ts",
+  "main": "dist/cli/index.js",
+  "types": "dist/cli/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "vitest --run",
     "dev": "tsc -w",
-    "run": "node dist/cli.js"
+    "run": "node dist/cli/index.js"
   },
   "files": [
     "dist",

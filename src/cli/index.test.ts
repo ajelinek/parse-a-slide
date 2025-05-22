@@ -1,37 +1,76 @@
-import { describe, it, expect, vi } from 'vitest'
+import { it, expect, vi, beforeEach, afterEach } from 'vitest'
 import cli from '.'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 
-it('shows help text with --help', async () => {
-  // Mock console.log to capture output
-  const consoleLogMock = vi.spyOn(console, 'log')
+let consoleLogMock: any
+let consoleErrorMock: any
+
+beforeEach(() => {
+  consoleLogMock = vi.spyOn(console, 'log')
   consoleLogMock.mockImplementation(() => {})
+  consoleErrorMock = vi.spyOn(console, 'error')
+  consoleErrorMock.mockImplementation(() => {})
+})
 
-  // Setup: Invoke CLI with --help argument
+afterEach(() => {
+  consoleLogMock.mockRestore()
+  consoleErrorMock.mockRestore()
+})
+
+it('CLI should display general help information when --help flag is used', async () => {
   await cli(['node', 'script.js', '--help'])
 
-  // Assert: Output contains usage/help text
   const output = consoleLogMock.mock.calls.flat().join('\n')
   expect(output).toContain('Usage:')
   expect(output).toContain('--help')
-
-  // Cleanup
-  consoleLogMock.mockRestore()
+  expect(output).toContain('Process presentation source files')
+  expect(output).toContain('For more information')
+  expect(output).toContain('Show version information')
 })
 
-it('shows build command help with build --help', async () => {
-  // Mock console.log to capture output
-  const consoleLogMock = vi.spyOn(console, 'log')
-  consoleLogMock.mockImplementation(() => {})
-
-  // Setup: Invoke CLI with build --help argument
+it('CLI should display build command help when build --help is used', async () => {
   await cli(['node', 'script.js', 'build', '--help'])
 
-  // Assert: Output contains build-specific help text
   const output = consoleLogMock.mock.calls.flat().join('\n')
-  expect(output).toContain('Build the project')
+  expect(output).toContain('Process presentation source files')
   expect(output).toContain('build')
-  expect(output).toContain('--output')
+  expect(output).toContain('--input')
+  expect(output).toContain('--output-dir')
+  expect(output).toContain('--format')
+  expect(output).toContain('--watch')
+  expect(output).toContain('--clean')
+  expect(output).toContain('--verbose')
+  expect(output).toContain('Process all Markdown files')
+  expect(output).toContain('Enable watch mode for automatic rebuilding')
+})
 
-  // Cleanup
-  consoleLogMock.mockRestore()
+it('CLI requires explicit build command', async () => {
+  let error: Error | null = null
+
+  try {
+    await cli(['node', 'script.js'])
+  } catch (err) {
+    error = err as Error
+  }
+
+  expect(error).not.toBeNull()
+  const errorOutput = consoleErrorMock.mock.calls.flat().join('\n')
+  expect(errorOutput).toContain('A command is required')
+})
+
+it('CLI shows version with --version', async () => {
+  let error: Error | null = null
+
+  try {
+    await cli(['node', 'script.js', '--version'])
+  } catch (err) {
+    error = err as Error
+  }
+
+  expect(error).toBeNull()
+
+  const packageJson = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'))
+  const output = consoleLogMock.mock.calls.flat().join('\n')
+  expect(output).toContain(packageJson.version)
 })

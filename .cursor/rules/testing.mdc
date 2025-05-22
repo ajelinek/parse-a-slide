@@ -11,9 +11,11 @@ description: Apply when implementing or modifying tests, test setup functions, p
 - Vitest for all unit tests.
 - Avoid mocking where possible; prefer testing with real objects or simple stubs if necessary.
 - Generate data required for each test or use small, focused fixtures.
-- Use a `setup` or `beforeEach` function for common test setup if it simplifies tests; otherwise, setup within each test.
+- Use a `setup` function for common test setup if it simplifies tests; otherwise, setup within each test.
 - Aim for clear, concise tests that focus on a single unit of behavior.
 - No comments within the tests unless explaining a particularly complex or non-obvious piece of logic.
+- No describe blocks.  use a setup function instead that is called for each test.  
+- BeforeEach and AfterEach can be used for generic cleanup and teardown of mocks, but is minimal.
 
 ## Unit Test Structure
 - Group related tests for a module or function.

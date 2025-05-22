@@ -20,10 +20,8 @@
       ]
     }
   },
-  "include": [
-    "src/**/*"
-, "old/presentationParser.test.ts", "old/presentationParser.ts"  ],
-  "exclude": [
+  "include": [ "src/**/*" ],
+   "exclude": [
     "node_modules",
     "dist",
     "test"
