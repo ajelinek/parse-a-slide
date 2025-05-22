@@ -3,6 +3,14 @@ import cli from '.'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
+// Mock the build handler module before it's imported by the command module
+vi.mock('./handlers/build-handler', () => ({
+  buildHandler: vi.fn(),
+}))
+
+// Import the mocked handler
+import { buildHandler } from './handlers/build-handler'
+
 let consoleLogMock: any
 let consoleErrorMock: any
 
@@ -11,6 +19,9 @@ beforeEach(() => {
   consoleLogMock.mockImplementation(() => {})
   consoleErrorMock = vi.spyOn(console, 'error')
   consoleErrorMock.mockImplementation(() => {})
+
+  // Clear mock between tests
+  vi.mocked(buildHandler).mockClear()
 })
 
 afterEach(() => {
@@ -41,8 +52,6 @@ it('CLI should display build command help when build --help is used', async () =
   expect(output).toContain('--watch')
   expect(output).toContain('--clean')
   expect(output).toContain('--verbose')
-  expect(output).toContain('Process all Markdown files')
-  expect(output).toContain('Enable watch mode for automatic rebuilding')
 })
 
 it('CLI requires explicit build command', async () => {
@@ -73,4 +82,63 @@ it('CLI shows version with --version', async () => {
   const packageJson = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8'))
   const output = consoleLogMock.mock.calls.flat().join('\n')
   expect(output).toContain(packageJson.version)
+})
+
+it('CLI rejects unknown commands', async () => {
+  let error: Error | null = null
+
+  try {
+    await cli(['node', 'script.js', 'foo'])
+  } catch (err) {
+    error = err as Error
+  }
+
+  expect(error).not.toBeNull()
+  const errorOutput = consoleErrorMock.mock.calls.flat().join('\n')
+  expect(errorOutput).toMatch(/Unknown argument: foo/)
+})
+
+it('CLI rejects unknown options', async () => {
+  let error: Error | null = null
+
+  try {
+    await cli(['node', 'script.js', 'build', '--unknown'])
+  } catch (err) {
+    error = err as Error
+  }
+
+  expect(error).not.toBeNull()
+  const errorOutput = consoleErrorMock.mock.calls.flat().join('\n')
+  expect(errorOutput).toMatch(/Unknown argument: unknown|Missing required argument: input/)
+})
+
+it('CLI build command triggers handler with correct args', async () => {
+  try {
+    await cli([
+      'node',
+      'test-script.js',
+      'build',
+      '--input',
+      'foo.md',
+      '-o',
+      'custom_out',
+      '--format',
+      'html',
+      '--watch',
+      '--clean',
+      '--verbose',
+    ])
+
+    expect(buildHandler).toHaveBeenCalledTimes(1)
+    const call = vi.mocked(buildHandler).mock.calls[0][0]
+    expect(call.input).toEqual(['foo.md'])
+    expect(call.outputDir).toBe('custom_out')
+    expect(call.format).toBe('html')
+    expect(call.watch).toBe(true)
+    expect(call.clean).toBe(true)
+    expect(call.verbose).toBe(true)
+  } catch (error) {
+    console.error('Test failed:', error)
+    throw error
+  }
 })

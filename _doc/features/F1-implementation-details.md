@@ -12,9 +12,13 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - `index.ts`: Main CLI entry point using yargs.
   - `index.test.ts`: Tests for CLI entry point.
   - `commands/`
-    - `build.ts`: Defines the build command, its options, and points to its handler. **Users must always pass the `build` command explicitly; there is no default command.**
-    - `build.test.ts`: Tests for build command.
+    - `build-command.ts`: Defines the build command and its options. **Users must always pass the `build` command explicitly; there is no default command.**
+    - `build-command.test.ts`: Tests for build command.
     - `index.ts`: Exports all command modules.
+  - `handlers/`
+    - `build-handler.ts`: Implements the handler function for the build command.
+    - `build-handler.test.ts`: Tests for build handler function.
+    - `index.ts`: Exports all handlers.
 - `src/core/`
   - `index.ts`: export of core functions in other libs
   - `discover.ts` # Pure function: discovers presentation files
@@ -60,13 +64,13 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
    - Initialize yargs.
    - Set scriptName("parse-a-slide").
    - Configure global options like --help and --version (using package.json).
-   - Import and register the build command from `src/cli/commands/build.ts`.
+   - Import and register the build command from `src/cli/commands/build-command.ts`.
    - **Require users to always pass the `build` command explicitly.** There is no default command.
    - Use .strict() to enforce known options and .parseAsync() for execution.
 
 ## Phase 2: Implement build Command, Options, and Handler
 
-1. **Define build Command (`src/cli/commands/build.ts`):**
+1. **Define build Command (`src/cli/commands/build-command.ts`):**
 
    - Command: build <input...>
    - Description: "Process presentation source files and generate specified output format."
@@ -77,10 +81,10 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
      - watch (Alias: -w, Type: boolean, Default: false): Enables watch mode for automatic rebuilding on file changes.
      - clean (Type: boolean, Default: false): Cleans the output directory before building.
      - verbose (Alias: -v, Type: boolean, Default: false): Enables verbose logging. This will control the logger's output level.
-   - Handler: Points to handleBuildCommand from `src/cli/commands/build.ts` (which manages orchestration).
+   - Handler: Points to buildHandler from `src/cli/handlers/build-handler.ts` (which manages orchestration).
 
-2. **Implement build Handler (`src/cli/commands/build.ts`):**
-   - Define async function handleBuildCommand(args: ParsedBuildArgs). ParsedBuildArgs will be an interface in `src/types/cli.ts`.
+2. **Implement build Handler (`src/cli/handlers/build-handler.ts`):**
+   - Define async function buildHandler(args: ParsedBuildArgs). ParsedBuildArgs will be an interface in `src/types/cli.ts`.
    - **Logger:**
      - Use a singleton logger pattern, but keep the implementation simple: use `console.log`, `console.error`, etc.
      - In tests, use a default mock logger so logs do not show in the console. The logger can be swapped for a mock in test setup.
@@ -108,7 +112,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 ### 1. Basic CLI Tests (`src/cli/index.test.ts`)
 
-- **Test: CLI shows help text with --help**
+- [x] **Test: CLI shows help text with --help**
 
   - Setup:
     - Invoke CLI with `--help` argument.
@@ -116,7 +120,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Output contains usage/help text.
     - No errors are thrown.
 
-- **Test: CLI shows version with --version**
+- [x] **Test: CLI shows version with --version**
 
   - Setup:
     - Invoke CLI with `--version` argument.
@@ -124,7 +128,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Output matches version from `package.json`.
     - No errors are thrown.
 
-- **Test: CLI requires explicit build command**
+- [x] **Test: CLI requires explicit build command**
 
   - Setup:
     - Invoke CLI with no command.
@@ -132,7 +136,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Output indicates that a command is required.
     - Error is thrown or process exits with error code.
 
-- **Test: CLI rejects unknown commands**
+- [x] **Test: CLI rejects unknown commands**
 
   - Setup:
     - Invoke CLI with an unknown command (e.g., `foo`).
@@ -140,7 +144,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Output contains error about unknown command.
     - Process exits with error code.
 
-- **Test: CLI rejects unknown options**
+- [x] **Test: CLI rejects unknown options**
 
   - Setup:
     - Invoke CLI with an unknown option (e.g., `--unknown`).
@@ -148,16 +152,16 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Output contains error about unknown option.
     - Process exits with error code.
 
-- **Test: CLI build command triggers handler with correct args**
+- [ ] **Test: CLI build command triggers handler with correct args**
   - Setup:
-    - Mock `handleBuildCommand`.
+    - Mock `buildHandler`.
     - Invoke CLI with `build` and various options (e.g., `--input foo.md -o custom_out --format html --watch --clean --verbose`).
   - Assertions:
-    - `handleBuildCommand` is called once with expected parsed arguments.
+    - `buildHandler` is called once with expected parsed arguments.
 
-### 2. Build Command & Handler Tests (`src/cli/commands/build.test.ts`)
+### 2. Build Command & Handler Tests (`src/cli/commands/build-command.test.ts`)
 
-- **Test: Parses required input argument**
+- [ ] **Test: Parses required input argument**
 
   - Setup:
     - Mock dependencies.
@@ -166,21 +170,21 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Handler receives correct input array.
     - Error if input is missing.
 
-- **Test: Applies default values for options**
+- [ ] **Test: Applies default values for options**
 
   - Setup:
     - Call build command with only required input.
   - Assertions:
     - Handler receives default values for outputDir, format, watch, clean, and verbose.
 
-- **Test: Applies option aliases**
+- [ ] **Test: Applies option aliases**
 
   - Setup:
     - Call build command using aliases (e.g., `-o`, `-f`, `-w`, `-v`).
   - Assertions:
     - Handler receives correct values for each option.
 
-- **Test: Validates format choices**
+- [ ] **Test: Validates format choices**
 
   - Setup:
     - Call build command with valid and invalid `--format` values.
@@ -188,7 +192,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Handler receives correct format for valid values.
     - CLI errors for invalid values.
 
-- **Test: Calls cleanOutputDirectory when --clean is set**
+- [ ] **Test: Calls cleanOutputDirectory when --clean is set**
 
   - Setup:
     - Mock `cleanOutputDirectory`.
@@ -196,7 +200,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - `cleanOutputDirectory` is called before processing presentations.
 
-- **Test: Does not call cleanOutputDirectory when --clean is not set**
+- [ ] **Test: Does not call cleanOutputDirectory when --clean is not set**
 
   - Setup:
     - Mock `cleanOutputDirectory`.
@@ -204,7 +208,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - `cleanOutputDirectory` is not called.
 
-- **Test: Orchestrates parsePresentation for each presentation**
+- [ ] **Test: Orchestrates parsePresentation for each presentation**
 
   - Setup:
     - Mock all core functions as pure.
@@ -213,7 +217,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Each pure function is called with the correct data, in the correct order, and receives only the data it needs.
     - No core function is called by another core function.
 
-- **Test: Logger is initialized with correct verbosity**
+- [ ] **Test: Logger is initialized with correct verbosity**
 
   - Setup:
     - Mock logger.
@@ -221,7 +225,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - Logger is configured with correct log level.
 
-- **Test: Handles errors from handler gracefully**
+- [ ] **Test: Handles errors from handler gracefully**
   - Setup:
     - Mock handler to throw error.
     - Call build command.
@@ -231,7 +235,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 ### 3. Logger Tests (`src/utils/logger.test.ts`)
 
-- **Test: Logger outputs messages at each log level**
+- [ ] **Test: Logger outputs messages at each log level**
 
   - Setup:
     - Configure logger at each level (info, warn, error, debug).
@@ -239,7 +243,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - Only messages at or above the configured level are output.
 
-- **Test: Logger suppresses output below current level**
+- [ ] **Test: Logger suppresses output below current level**
 
   - Setup:
     - Configure logger at higher level (e.g., error).
@@ -247,7 +251,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - Only error messages are output.
 
-- **Test: Logger can be swapped for a mock in tests**
+- [ ] **Test: Logger can be swapped for a mock in tests**
 
   - Setup:
     - Replace logger with mock implementation.
@@ -256,7 +260,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - No output to console.
     - Mock methods are called as expected.
 
-- **Test: @LogActivity decorator logs method entry/exit**
+- [ ] **Test: @LogActivity decorator logs method entry/exit**
 
   - Setup:
     - Apply @LogActivity to a test method.
@@ -265,7 +269,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Logger logs method entry and exit.
     - Log messages include method name.
 
-- **Test: @LogTiming decorator logs execution time**
+- [ ] **Test: @LogTiming decorator logs execution time**
 
   - Setup:
     - Apply @LogTiming to a test method.
@@ -274,7 +278,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Logger logs execution time for method.
     - Log message includes method name and duration.
 
-- **Test: Decorators use singleton logger instance**
+- [ ] **Test: Decorators use singleton logger instance**
   - Setup:
     - Apply decorators to methods.
     - Replace logger singleton with mock.
@@ -288,14 +292,19 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Main entry, yargs setup
 - **src/cli/index.test.ts** (New)
   - Test cases for CLI entry and command parsing
-- **src/cli/commands/build.ts** (New)
-  - `registerBuildCommand` — Registers the build command with yargs
-  - `handleBuildCommand` — Orchestrates the build process, calls discovery, cleaning, parsing, and logging
-  - `cleanOutputDirectory` — Uses file-utils to delete everything in a given path
-- **src/cli/commands/build.test.ts** (New)
-  - Test cases, mocks for handler and core functions
+- **src/cli/commands/build-command.ts** (New)
+  - Defines the build command with its options and points to its handler
+- **src/cli/commands/build-command.test.ts** (New)
+  - Test cases for command definition and option parsing
 - **src/cli/commands/index.ts** (New)
   - Exports all CLI commands
+- **src/cli/handlers/build-handler.ts** (New)
+  - `buildHandler` — Orchestrates the build process, calls discovery, cleaning, parsing, and logging
+  - `cleanOutputDirectory` — Uses file-utils to delete everything in a given path
+- **src/cli/handlers/build-handler.test.ts** (New)
+  - Test cases, mocks for handler and core functions
+- **src/cli/handlers/index.ts** (New)
+  - Exports all handler functions
 - **src/core/index.ts** (New)
   - Exports all core functions
 - **src/core/discover.ts** (New)
@@ -333,19 +342,19 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 ```mermaid
 graph TD
-    A[CLI Entry: src/cli/index.ts] --> B[Parse CLI Args (yargs)]
-    B --> C[registerBuildCommand (src/cli/commands/build.ts)]
-    C --> D[handleBuildCommand (src/cli/commands/build.ts)]
-    D --> E[configureLogger (src/utils/logger.ts)]
+    A[CLI Entry: src/cli/index.ts] --> B[Parse CLI Args - yargs]
+    B --> C[build-command - src/cli/commands/build-command.ts]
+    C --> D[buildHandler - src/cli/handlers/build-handler.ts]
+    D --> E[configureLogger - src/utils/logger.ts]
     D --> F{--clean?}
-    F -- Yes --> G[cleanOutputDirectory (src/cli/commands/build.ts) → file-system]
+    F -- Yes --> G[cleanOutputDirectory - src/cli/handlers/build-handler.ts → file-system]
     F -- No --> H[Skip Cleaning]
-    D --> I[discoverPresentations (src/core/discover.ts)]
+    D --> I[discoverPresentations - src/core/discover.ts]
     I --> J[For each presentation]
-    J --> K[Read all .pres files in directory (file-system)]
-    K --> L[parsePresentation (src/core/parser.ts)]
+    J --> K[Read all .pres files in directory - file-system]
+    K --> L[parsePresentation - src/core/parser.ts]
     L --> M[SlideNode]
-    M --> N[Future: generate output files (src/core/generator.ts)]
+    M --> N[Future: generate output files - src/core/generator.ts]
 ```
 
 ---

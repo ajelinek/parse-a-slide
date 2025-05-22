@@ -4,7 +4,8 @@ This diagram shows the code structure and functional interactions for the CLI Ap
 
 ```mermaid
 flowchart TD
-    CLI[CLI/build command - orchestrator]
+    Commands[CLI/Commands - definitions]
+    Handlers[CLI/Handlers - orchestration]
     Discover[discoverPresentations]
     Parser[parsePresentation]
     Assets[handleAssets]
@@ -13,16 +14,18 @@ flowchart TD
     MDGen[MD Generator]
     HTMLGen[HTML Generator]
 
-    CLI -->|input patterns| Discover
-    CLI -->|presentation file info| Parser
+    Commands -->|passes args to| Handlers
+    Handlers -->|input patterns| Discover
+    Handlers -->|presentation file info| Parser
     Parser -->|calls| Assets
-    CLI -->|slide nodes + asset info| Generator
-    CLI -->|options| Watcher
+    Handlers -->|slide nodes + asset info| Generator
+    Handlers -->|options| Watcher
     Generator -->|mdx/md| MDGen
     Generator -->|html| HTMLGen
 
     subgraph CLI_Module[CLI Layer]
-      CLI
+      Commands
+      Handlers
     end
     subgraph Core_Module[Core Layer]
       Discover
@@ -37,6 +40,6 @@ flowchart TD
     end
 ```
 
-- **CLI Layer**: Handles argument parsing, command registration, and orchestration.
+- **CLI Layer**: Split into commands (argument parsing, option definitions) and handlers (orchestration logic).
 - **Core Layer**: Pure functions for discovery, parsing, asset handling, generation, and file watching.
 - **Generators Layer**: Specialized output generators for MD/MDX and HTML.

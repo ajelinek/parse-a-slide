@@ -20,8 +20,10 @@ parse-a-slide/
 ├── src/
 │   ├── cli/
 │   │   ├── index.ts # Main CLI entry point, command parsing (e.g., using yargs)
-│   │   └── commands/
-│   │       └── build.ts # Orchestration logic for build command
+│   │   ├── commands/
+│   │   │   └── build-command.ts # Command definition and options
+│   │   └── handlers/
+│   │       └── build-handler.ts # Handler implementation and orchestration logic
 │   ├── core/
 │   │   ├── discover.ts # Pure: discovers presentation files
 │   │   ├── parser.ts # Pure: parses presentation source into metadata and slides
