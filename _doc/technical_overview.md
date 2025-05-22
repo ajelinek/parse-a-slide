@@ -42,16 +42,13 @@ parse-a-slide/
 ├── templates/
 │   └── rules/
 │       └── llm-authoring-rules.md
-├── test/
-│   ├── unit/
-│   │   └── parser.spec.ts
-│   └── fixtures/
-│       └── sample-presentation.md
 ├── package.json
 ├── tsconfig.json
 ├── README.md
 └── LICENSE
 ```
+
+All tests should be next to the files they are testing using the filename.test.ts pattern.
 
 ## 3. CLI Design
 

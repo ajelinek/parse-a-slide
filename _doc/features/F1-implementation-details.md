@@ -10,8 +10,10 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 - `src/cli/`
   - `index.ts`: Main CLI entry point using yargs.
+  - `index.test.ts`: Tests for CLI entry point.
   - `commands/`
     - `build.ts`: Defines the build command, its options, and points to its handler. **Users must always pass the `build` command explicitly; there is no default command.**
+    - `build.test.ts`: Tests for build command.
     - `index.ts`: Exports all command modules.
 - `src/core/`
   - `index.ts`: export of core functions in other libs
@@ -102,8 +104,9 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 - All tests should treat core modules as pure functions, and only the CLI/build command as the orchestrator.
 - Tests for the build handler should verify correct sequencing and data passing between pure functions, not internal calls between core modules.
+- All test files should be placed next to the files they are testing with a `.test.ts` extension.
 
-### 1. Basic CLI Tests (`test/unit/cli/index.test.ts`)
+### 1. Basic CLI Tests (`src/cli/index.test.ts`)
 
 - **Test: CLI shows help text with --help**
 
@@ -152,7 +155,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
   - Assertions:
     - `handleBuildCommand` is called once with expected parsed arguments.
 
-### 2. Build Command & Handler Tests (`test/unit/cli/build.test.ts`)
+### 2. Build Command & Handler Tests (`src/cli/commands/build.test.ts`)
 
 - **Test: Parses required input argument**
 
@@ -226,7 +229,7 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
     - Error is logged.
     - Process exits with error code.
 
-### 3. Logger Tests (`test/unit/utils/logger.test.ts`)
+### 3. Logger Tests (`src/utils/logger.test.ts`)
 
 - **Test: Logger outputs messages at each log level**
 
@@ -283,10 +286,14 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 
 - **src/cli/index.ts** (New)
   - Main entry, yargs setup
+- **src/cli/index.test.ts** (New)
+  - Test cases for CLI entry and command parsing
 - **src/cli/commands/build.ts** (New)
   - `registerBuildCommand` — Registers the build command with yargs
   - `handleBuildCommand` — Orchestrates the build process, calls discovery, cleaning, parsing, and logging
   - `cleanOutputDirectory` — Uses file-utils to delete everything in a given path
+- **src/cli/commands/build.test.ts** (New)
+  - Test cases, mocks for handler and core functions
 - **src/cli/commands/index.ts** (New)
   - Exports all CLI commands
 - **src/core/index.ts** (New)
@@ -304,20 +311,16 @@ All core modules (discovery, parsing, generation, etc.) are pure functions: they
 - **src/utils/logger.ts** (New)
   - `configureLogger` — Configures the logger singleton
   - `getLogger` — Returns the logger instance
+- **src/utils/logger.test.ts** (New)
+  - Test cases, mock logger
 - **src/utils/file-system.ts** (New)
   - File system utilities (used by cleanOutputDirectory)
-- **src/utils/index.ts** (New)
-  - Exports all utils
+- **src/utils/file-system.test.ts** (New)
+  - Test cases for file system utilities
 - **src/types/cli.ts** (New)
   - `ParsedBuildArgs` — Types for CLI arguments and handler input
 - **src/types/index.ts** (New)
   - Exports all types
-- **test/unit/cli/index.test.ts** (New)
-  - Test cases for CLI entry and command parsing
-- **test/unit/cli/build.test.ts** (Mocked)
-  - Test cases, mocks for handler and core functions
-- **test/unit/utils/logger.test.ts** (Mocked)
-  - Test cases, mock logger
 
 **Legend:**
 

@@ -22,7 +22,7 @@
   },
   "include": [
     "src/**/*"
-  ],
+, "old/presentationParser.test.ts", "old/presentationParser.ts"  ],
   "exclude": [
     "node_modules",
     "dist",
