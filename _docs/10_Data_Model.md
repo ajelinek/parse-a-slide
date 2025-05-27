@@ -94,10 +94,23 @@ A `SlideNode` represents a conceptual slide within the presentation. It aggregat
   - `timing`: (Object, Optional) Configuration for timed transitions or animations (e.g., `{ duration: 5000, autoAdvance: true }`).
   - Other rendering-specific attributes.
 - `content`: (String) The processed and aggregated content that constitutes this slide, ready for display.
+- `assets`: (Array of `Asset`) A list of assets associated with this slide, including images, videos, or other media. It will have the asset relative paths and the actual asset in memory.
+
+We will also create a SlideNodes type which is a list of `SlideNode` objects.
 
 **Relationships:**
 
-*   A `SlideNode` can be derived from one or more `Fragment`s. It represents the logical structure of slides, which might not map one-to-one with physical files (fragments), allowing for complex compositions and hierarchies.
+- A `SlideNode` can be derived from one or more `Fragment`s. It represents the logical structure of slides, which might not map one-to-one with physical files (fragments), allowing for complex compositions and hierarchies.
+
+### 6. Asset
+
+An `Asset` represents a file or resource (e.g., an image, video, or other media) that is associated with a `SlideNode`.
+
+**Attributes:**
+
+- `id`: (String) A unique identifier for the asset.
+- `relativePath`: (String) The relative path to the asset from the presentation's root directory.
+- `content`: (String) The content of the asset (e.g., base64 encoded image data).
 
 ### Data Model UML Diagram
 
@@ -111,10 +124,12 @@ classDiagram
     SlideNode "1" -- "0..1" SlideNode : previous
     SlideNode "1" -- "0..1" SlideNode : next
     SlideNode "1" -- "0..*" SlideNode : child
+    SlideNode "0..*" -- "0..*" Asset : contains
 
     class Presentation
     class PresentationMetadata
     class Fragment
     class FragmentMetadata
     class SlideNode
+    class Asset
 ```
