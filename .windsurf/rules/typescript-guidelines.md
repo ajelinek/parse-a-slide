@@ -15,7 +15,10 @@ Apply these rules when defining data models, component props, utility types, or 
 
 ## Core Principles
 - Use types over interfaces (except for classes)
-- Explicit over implicit
+- Leverage type inference whenever possible
+- Avoid creating unnecessary type definitions when types can be inferred
+- Only create explicit types when they need to be reused across the system
+- Place all shared type definitions in *.d.ts declaration files
 - Composition over inheritance
 - Clear naming conventions
 - Document complex types
