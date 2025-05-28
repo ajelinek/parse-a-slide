@@ -22,27 +22,31 @@ import {
   cleanDir 
 } from '../fs-utils';
 import { ErrorCode } from '../error';
-import { FileTestUtil } from './file-test-util';
+import * as fileTestUtil from '../../test-utils/file-test-util';
 
 // Cast the mocked function to the correct type
 const mockGlobSync = globSync as unknown as ReturnType<typeof vi.fn>;
 
-// Create a file test utility for this test module
-const fileUtil = new FileTestUtil('fs-utils');
+// Test module name
+const TEST_MODULE = 'fs-utils';
 
-// Clean up before and after tests
-beforeEach(async () => {
-  await fileUtil.cleanup();
-});
-
-afterEach(async () => {
-  await fileUtil.cleanup();
-});
+/**
+ * Set up test directory with the given file structure
+ * @param fileStructure The file structure to create
+ * @returns The path to the test directory
+ */
+async function setUp(fileStructure?: any) {
+  // Clean up any existing test directory
+  await fileTestUtil.cleanup(TEST_MODULE);
+  
+  // Create and return the test directory
+  return fileTestUtil.setup(TEST_MODULE, fileStructure || {});
+}
   
 it('should read a file that exists', async () => {
   // Setup test with a file
   const content = 'Hello, world!';
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'test-file.txt': content
   });
   
@@ -57,7 +61,7 @@ it('should read a file that exists', async () => {
 
 it('should write content to a file', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Test writing to a file
   const filePath = path.join(testDir, 'new-file.txt');
@@ -73,7 +77,7 @@ it('should write content to a file', async () => {
     
 it('should ensure a directory exists', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Test creating a directory
   const dirPath = path.join(testDir, 'new-dir');
@@ -88,7 +92,7 @@ it('should ensure a directory exists', async () => {
 
 it('should find files with a glob pattern', async () => {
   // Setup test with multiple files
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'file1.txt': 'content1',
     'file2.txt': 'content2',
     'file3.md': 'content3'
@@ -113,7 +117,7 @@ it('should find files with a glob pattern', async () => {
 it('should copy a file', async () => {
   // Setup test with a source file
   const content = 'Source content';
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'source.txt': content
   });
   
@@ -131,7 +135,7 @@ it('should copy a file', async () => {
 
 it('should check if a path exists', async () => {
   // Setup test with a file
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'exists.txt': 'content'
   });
   
@@ -146,7 +150,7 @@ it('should check if a path exists', async () => {
 
 it('should clean a directory', async () => {
   // Setup test with files and subdirectories using the simplified structure
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'file1.txt': 'content1',
     'file2.txt': 'content2',
     'subdir': {
@@ -174,7 +178,7 @@ it('should clean a directory', async () => {
 
 it('should return an error when reading a file that does not exist', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Test reading a non-existent file
   const nonExistentPath = path.join(testDir, 'non-existent.txt');
@@ -192,7 +196,7 @@ it('should return an error when writing to a path with insufficient permissions'
   }
   
   // Setup test with a restricted directory
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp( {
     'restricted': null
   });
   
@@ -221,7 +225,7 @@ it('should return an error when creating a directory with insufficient permissio
   }
   
   // Setup test with a restricted directory
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp( {
     'restricted': null
   });
   
@@ -243,7 +247,7 @@ it('should return an error when creating a directory with insufficient permissio
     
 it('should return an error when finding files with an invalid glob pattern', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Setup mock to throw an error
   const invalidPattern = '[invalid';
@@ -262,7 +266,7 @@ it('should return an error when finding files with an invalid glob pattern', asy
     
 it('should return an error when copying a file that does not exist', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Test copying a non-existent file
   const nonExistentSource = path.join(testDir, 'non-existent.txt');
@@ -281,7 +285,7 @@ it('should return an error when copying to a destination with insufficient permi
   }
   
   // Setup test with a source file and restricted directory
-  const testDir = await fileUtil.setup({
+  const testDir = await setUp({
     'source.txt': 'content',
     'restricted': null
   });
@@ -310,7 +314,7 @@ it('should return an error when copying to a destination with insufficient permi
     
 it('should return an error when cleaning a directory that does not exist', async () => {
   // Setup test with an empty directory
-  const testDir = await fileUtil.setup();
+  const testDir = await setUp();
   
   // Test cleaning a non-existent directory
   const nonExistentDir = path.join(testDir, 'non-existent-dir');
