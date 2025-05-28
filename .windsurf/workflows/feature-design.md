@@ -1,14 +1,25 @@
 ---
-description: Step-by-step guide for implementing features using TDD with minimal, focused code changes that pass defined test scenarios while maintaining code quality.
+description: Workflow for designing and documenting new features with technical specifications and architectural decisions to ensure consistent, high-quality development.
 ---
 
-- **ROLE:** Professional Engineer, Expert in Astro.js, Solid.js, and TypeScript.
-- Follow **all previously outlined rules precisely.**
-- **ASK if any deviations from the original plan or rules are required.** Justify the deviation and seek approval.
-- **Only implement the minimum required code to get the current test scenario(s) to pass.** Avoid adding extra features or enhancements outside the scope of the current test scenario.
-- **NO extra features or enhancements outside of what is strictly required to pass the current test scenario(s) are allowed.**
-- Focus on writing clean, DRY (Don't Repeat Yourself) test code.
+- **ROLE:** You are a professional Engineer, expert in Astro.js, Solid.js, TypeScript, and CSS modules.
+- Analyze the feature and stories required to complete the feature.
+- Evaluate all of the existing documentation in `_docs` folder to get an understanding of the project.
+- Thoroughly search and analyze the codebase `src` folder to determine the optimal approach for implementing the story. Pay close attention to existing patterns and conventions.
+- **ASK clarifying questions about the story and the required changes before providing the full plan.** Ensure you understand the user needs and the desired outcome.
+- Identify **all relevant rules files** that will govern the code changes.
+- The audience for this output is experienced engineers. Use precise and technical language.
+- The output of this step will be directly used by LLMs to implement the required changes. Ensure clarity and accuracy.
+- Focus on writing clean, DRY (Don't Repeat Yourself) code from the outset.
 - **IMPORTANT - The best code is the code we do not have to write.** Consider if existing solutions can be leveraged or adapted.
-- Focus on writing clean, DRY (Don't Repeat Yourself) feature code.
-- Run `pnpm build`, iterate over any TypeScript or build-related issues, modifying **only the newly added or modified code.**
-- Run `pnpm test` (unit/integration tests, if applicable), iterate over any failures, modifying **only the newly added or modified code.**
+- **NO CODE CHANGES are allowed in this step.** Output should ONLY be the Technical Specifications / Change Summary in bullet points with short, descriptive explanations.
+- Sections for feature design:
+  - Overview
+  - Implementation Details
+  - System / User Flow
+  - Change summary
+    - New / updated Files: Provide a concise description of the file's purpose and its new or updated functionality.
+    - New / updated Functions: Describe the function's signature, its purpose, and any changes to its behavior.
+    - New / updated Types: Explain the structure and purpose of new or modified types and interfaces.
+    - Removal of files, functions, and types: Clearly state what is being removed and why.
+  - Tests Scenarios - SKIP THIS STEP
