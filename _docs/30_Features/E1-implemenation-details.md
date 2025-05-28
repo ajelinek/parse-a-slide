@@ -361,30 +361,30 @@ Feature: File System Utilities Error Handling
 ```gherkin
 Feature: CLI Functionality
 
-  - [ ] Scenario: CLI parses build command options correctly
+  - [x] Scenario: CLI parses build command options correctly
     Given the CLI is invoked with the build command
     And valid input, output, and format options
     When the command is processed
     Then the buildHandler should be called with the correct options
 
-  - [ ] Scenario: CLI sets verbose mode correctly
+  - [x] Scenario: CLI sets verbose mode correctly
     Given the CLI is invoked with the build command
     And the --verbose flag
     When the command is processed
     Then the buildHandler should be called with verbose set to true
 
-  - [ ] Scenario: CLI sets quiet mode correctly
+  - [x] Scenario: CLI sets quiet mode correctly
     Given the CLI is invoked with the build command
     And the --quiet flag
     When the command is processed
     Then the buildHandler should be called with quiet set to true
 
-  - [ ] Scenario: CLI displays help information
+  - [x] Scenario: CLI displays help information
     Given the CLI is invoked with the --help flag
     When the command is processed
     Then help information should be displayed
 
-  - [ ] Scenario: CLI displays version information
+  - [x] Scenario: CLI displays version information
     Given the CLI is invoked with the --version flag
     When the command is processed
     Then version information should be displayed
@@ -395,23 +395,23 @@ Feature: CLI Functionality
 ```gherkin
 Feature: CLI Error Handling
 
-  - [ ] Scenario: CLI requires a command
+  - [x] Scenario: CLI requires a command
     Given the CLI is invoked without a command
     When the command is processed
     Then an error should be displayed indicating a command is required
 
-  - [ ] Scenario: CLI rejects unknown commands
+  - [x] Scenario: CLI rejects unknown commands
     Given the CLI is invoked with an unknown command
     When the command is processed
     Then an error should be displayed indicating the command is unknown
 
-  - [ ] Scenario: CLI requires input option for build command
+  - [x] Scenario: CLI requires input option for build command
     Given the CLI is invoked with the build command
     And no input option
     When the command is processed
     Then an error should be displayed indicating input is required
 
-  - [ ] Scenario: CLI rejects invalid format options
+  - [x] Scenario: CLI rejects invalid format options
     Given the CLI is invoked with the build command
     And an invalid format option
     When the command is processed
@@ -425,13 +425,13 @@ Feature: CLI Error Handling
 ```gherkin
 Feature: Test Utilities
 
-  - [ ] Scenario: Creating a test file structure
+  - [x] Scenario: Creating a test file structure
     Given a valid test file structure configuration
     When the createTestFileStructure function is called
     Then a Result.ok should be returned with the created structure
     And the specified files and directories should exist
 
-  - [ ] Scenario: Cleaning up a test file structure
+  - [x] Scenario: Cleaning up a test file structure
     Given an existing test file structure
     When the cleanupTestFileStructure function is called
     Then a Result.ok should be returned
@@ -443,12 +443,12 @@ Feature: Test Utilities
 ```gherkin
 Feature: Test Utilities Error Handling
 
-  - [ ] Scenario: Creating a test file structure with invalid configuration
+  - [x] Scenario: Creating a test file structure with invalid configuration
     Given an invalid test file structure configuration
     When the createTestFileStructure function is called
     Then a Result.err should be returned with an InvalidConfigError
 
-  - [ ] Scenario: Cleaning up a non-existent test file structure
+  - [x] Scenario: Cleaning up a non-existent test file structure
     Given a reference to a non-existent test file structure
     When the cleanupTestFileStructure function is called
     Then a Result.err should be returned with a StructureNotFoundError
