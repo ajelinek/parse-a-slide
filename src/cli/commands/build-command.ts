@@ -1,6 +1,6 @@
-import { Argv, ArgumentsCamelCase } from 'yargs'
-import { buildHandler } from '../handlers/build-handler'
+import { ArgumentsCamelCase } from 'yargs'
 import { BuildCommandOptions, ParsedBuildArgs } from '../../types/cli'
+import { buildHandler } from '../handlers/build-handler'
 
 /**
  * Converts raw yargs arguments to clean BuildCommandOptions
@@ -13,6 +13,7 @@ function convertToHandlerOptions(args: ArgumentsCamelCase<ParsedBuildArgs>): Bui
     watch: Boolean(args.watch),
     clean: Boolean(args.clean),
     verbose: Boolean(args.verbose),
+    quiet: Boolean(args.quiet),
   }
 }
 
@@ -53,6 +54,12 @@ export const buildCommand = {
     verbose: {
       alias: 'v',
       describe: 'Enable verbose logging',
+      type: 'boolean' as const,
+      default: false,
+    },
+    quiet: {
+      alias: 'q',
+      describe: 'Suppress info-level logging (only show errors)',
       type: 'boolean' as const,
       default: false,
     },

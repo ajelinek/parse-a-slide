@@ -20,6 +20,9 @@ export interface BuildCommandOptions {
 
   /** Enable verbose logging */
   verbose: boolean
+
+  /** Suppress info-level logging (only show errors) */
+  quiet: boolean
 }
 
 /**
@@ -32,5 +35,6 @@ export type ParsedBuildArgs = {
   watch: boolean
   clean: boolean
   verbose: boolean
+  quiet: boolean
   [key: string]: unknown
 }

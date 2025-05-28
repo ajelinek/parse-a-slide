@@ -33,6 +33,7 @@ parse-a-slide/
 │   │   ├── discovery.ts       // Discovers presentation and fragment files
 │   │   ├── parser.ts          // Parses presentation content into slide nodes
 │   │   ├── generator.ts       // Generates output files (HTML/MDX)
+│   │   ├── watcher.ts         // Handles file watching for live reloading
 │   │   ├── processors/        // Directory for slide node processors
 │   │   │   └── index.ts       // Exports processors
 │   │   ├── types/             // Shared TypeScript types and interfaces
@@ -209,11 +210,65 @@ sequenceDiagram
                 FSUtils-->>AssetCopier: ResultAsync<void, AppError>
                 AssetCopier-->>BuildHandler: ResultAsync<void, AppError>
             else Parsing failed
-                BuildHandler-->>BuildHandler: (Accumulate error)
+                BuildHandler-->>User: Report error
             end
         end
-        BuildHandler-->>User: Report overall success or errors
+        BuildHandler-->>User: Report overall success/failure
     end
+```
+
+### System Interaction Diagram (Component Overview)
+
+This diagram provides a higher-level overview of the main components and their primary interactions within the system.
+
+```mermaid
+graph TD
+    subgraph UserInteraction["User Interaction"]
+        User(["User/CLI Invocation"])
+    end
+
+    subgraph CLI_Layer ["CLI Layer (src/cli)"]
+        CLI_Main["cli.ts (yargs setup)"]
+        BuildCommand["commands/build.ts"]
+        BuildHandler["handlers/buildHandler.ts"]
+    end
+
+    subgraph Core_Layer ["Core Logic (src/core)"]
+        Discovery["discovery.ts"]
+        Parser["parser.ts"]
+        ProcessorsDir["processors/"]
+        Generator["generator.ts"]
+        Watcher["watcher.ts (Handles --watch)"]
+    end
+
+    subgraph Utils_Layer ["Utilities (src/utils)"]
+        FSUtils["fsUtils.ts"]
+        AssetCopier["assetCopier.ts"]
+    end
+
+    User -- "Executes 'build' or 'watch' command" --> CLI_Main
+    CLI_Main -- "Routes to" --> BuildCommand
+    BuildCommand -- "Invokes" --> BuildHandler
+
+    BuildHandler -- "1. Uses (for --watch)" --> Watcher
+    Watcher -- "Uses (monitors file changes)" --> FSUtils
+
+    BuildHandler -- "2. Calls" --> Discovery
+    Discovery -- "Uses" --> FSUtils
+
+    BuildHandler -- "3. Inflates Presentation (Uses)" --> FSUtils
+
+    BuildHandler -- "4. Calls" --> Parser
+    Parser -- "Uses" --> ProcessorsDir
+
+    BuildHandler -- "5. Calls" --> Generator
+    Generator -- "Uses" --> FSUtils
+
+    BuildHandler -- "6. Calls" --> AssetCopier
+    AssetCopier -- "Uses" --> FSUtils
+
+    classDef user fill:#f9f,stroke:#333,stroke-width:2px;
+    class User UserInteraction;
 ```
 
 ## 6. Error Handling Strategy
@@ -242,7 +297,7 @@ A central logger utility will be implemented to handle all application output di
 
 The testing approach aims for robust coverage by focusing on module interactions and real file system operations where practical, minimizing the reliance on mocks for core logic.
 
-- **Combined Unit/Integration Tests**:
+- **Combined Unit/Integration Tests**
 
   - There will be no strict delineation between traditional unit and integration tests for module testing. Tests will target the public interface of a module (e.g., a function exported from `discovery.ts` or `parser.ts`).
   - These tests will execute the code path through its internal logic and interactions with direct dependencies (e.g., `FSUtils` calls from `Discovery`).
@@ -250,12 +305,12 @@ The testing approach aims for robust coverage by focusing on module interactions
   - **Mocking**: Mocks will be minimized. The primary candidate for mocking will be the `Logger` to control and verify output during tests.
   - Tests will be written using Vitest.
 
-- **End-to-End (E2E) Tests**:
+- **End-to-End (E2E) Tests**
 
   - A separate suite of E2E tests will be maintained.
   - These tests will invoke the CLI application directly using `child_process` or a similar mechanism.
   - Assertions will be made on the actual output files created in a temporary directory, exit codes, and console output (stdout/stderr) captured from the CLI process.
   - E2E tests will cover various command-line option combinations and overall application behavior from the user's perspective.
 
-- **Error Handling Tests**:
+- **Error Handling Tests**
   - Specific tests will ensure that `neverthrow` `Result` objects are correctly returned for expected error conditions (e.g., file not found, parsing errors) and that these errors are appropriately handled and reported by the consuming modules or the CLI.
