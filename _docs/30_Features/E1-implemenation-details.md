@@ -271,41 +271,41 @@ Feature: Logger Error Handling
 ```gherkin
 Feature: File System Utilities
 
-  - [ ] Scenario: Reading a file that exists
+  - [x] Scenario: Reading a file that exists
     Given a file with known content exists at a specific path
     When the readFile function is called with that path
     Then a Result.ok should be returned with the file content
 
-  - [ ] Scenario: Writing content to a file
+  - [x] Scenario: Writing content to a file
     Given a valid path for a new file
     When the writeFile function is called with that path and content
     Then a Result.ok should be returned
     And the file should exist with the specified content
 
-  - [ ] Scenario: Ensuring a directory exists
+  - [x] Scenario: Ensuring a directory exists
     Given a path for a directory that does not exist
     When the ensureDir function is called with that path
     Then a Result.ok should be returned
     And the directory should exist
 
-  - [ ] Scenario: Finding files with a glob pattern
+  - [x] Scenario: Finding files with a glob pattern
     Given a directory with multiple files of different types
     When the findFiles function is called with a glob pattern
     Then a Result.ok should be returned with an array of matching file paths
 
-  - [ ] Scenario: Copying a file
+  - [x] Scenario: Copying a file
     Given a source file exists
     And a valid destination path
     When the copyFile function is called with source and destination
     Then a Result.ok should be returned
     And the destination file should exist with the same content as the source
 
-  - [ ] Scenario: Checking if a path exists
+  - [x] Scenario: Checking if a path exists
     Given a file exists at a specific path
     When the pathExists function is called with that path
     Then a Result.ok should be returned with true
 
-  - [ ] Scenario: Cleaning a directory
+  - [x] Scenario: Cleaning a directory
     Given a directory with multiple files and subdirectories
     When the cleanDir function is called with that directory path
     Then a Result.ok should be returned
@@ -317,38 +317,38 @@ Feature: File System Utilities
 ```gherkin
 Feature: File System Utilities Error Handling
 
-  - [ ] Scenario: Reading a file that does not exist
+  - [x] Scenario: Reading a file that does not exist
     Given a path to a file that does not exist
     When the readFile function is called with that path
     Then a Result.err should be returned with a FileNotFoundError
 
-  - [ ] Scenario: Writing to a path with insufficient permissions
+  - [x] Scenario: Writing to a path with insufficient permissions
     Given a path with insufficient write permissions
     When the writeFile function is called with that path and content
     Then a Result.err should be returned with a PermissionError
 
-  - [ ] Scenario: Creating a directory with insufficient permissions
+  - [x] Scenario: Creating a directory with insufficient permissions
     Given a path with insufficient permissions for directory creation
     When the ensureDir function is called with that path
     Then a Result.err should be returned with a PermissionError
 
-  - [ ] Scenario: Finding files with an invalid glob pattern
+  - [x] Scenario: Finding files with an invalid glob pattern
     Given an invalid glob pattern
     When the findFiles function is called with that pattern
     Then a Result.err should be returned with an InvalidGlobError
 
-  - [ ] Scenario: Copying a file that does not exist
+  - [x] Scenario: Copying a file that does not exist
     Given a source path to a file that does not exist
     When the copyFile function is called with that source and a destination
     Then a Result.err should be returned with a FileNotFoundError
 
-  - [ ] Scenario: Copying to a destination with insufficient permissions
+  - [x] Scenario: Copying to a destination with insufficient permissions
     Given a source file exists
     And a destination path with insufficient permissions
     When the copyFile function is called with source and destination
     Then a Result.err should be returned with a PermissionError
 
-  - [ ] Scenario: Cleaning a directory that does not exist
+  - [x] Scenario: Cleaning a directory that does not exist
     Given a path to a directory that does not exist
     When the cleanDir function is called with that path
     Then a Result.err should be returned with a DirectoryNotFoundError
