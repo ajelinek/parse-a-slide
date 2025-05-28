@@ -27,13 +27,34 @@ Apply these rules for all feature implementations to ensure alignment with proje
 - **Preserve Existing Code**: Retain unrelated code and functionalities. Maintain the existing structure.
 - **Avoid Inventing Changes**: Only implement or suggest modifications explicitly requested.
 - **Use Clear Variable Names**: Prefer descriptive and explicit names over ambiguous ones to enhance readability.
+- **Use Function Declarations**: Use `function` declarations instead of arrow function expressions for all exported functions to improve readability and hoisting behavior.
+- **Place Helper Functions at Bottom**: Place all helper/utility functions at the bottom of the file after the public API functions to maintain a clear separation between public and private functionality.
 - **Prioritize Security**: Always consider security implications in code changes.
 - **Readable Code**: Favor readability over performance unless explicitly instructed otherwise.
 - **Avoid Fluff**: Provide concise code and explanations, without unnecessary details.
 - **Accuracy First**: Focus on depth and precision in all responses.
 - **Explain As Needed**: Address the request directly, with additional explanations only if required.
 
-# Scrippts to execute
+# Code Structure Guidelines
+
+# Coding Guidelines
+
+- Use `function` keyword over `const` for functions.
+- Group modules logically, each doing one thing.
+- Keep functions small and understandable.
+- Avoid nesting > 2 levels (use functions, returns).
+- Keep code DRY.
+- Use immutable objects.
+- **Public Functions First**: Place all exported/public functions at the top of the file.
+- **Helper Functions Last**: Place all helper/utility functions at the bottom of the file.
+- **Function Organization**: Group related functions together for better code organization.
+- Export functions directly on the function.
+
+```ts
+export async function example() {}
+```
+
+# Scripts to execute
 
 - `pnpm build` - to build the project and check for errors. This should be ran after all code changs.
 - `pnpm test` - to test the changes to make sure things are working. This should be ran after all code changes.

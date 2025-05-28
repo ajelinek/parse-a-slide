@@ -23,7 +23,7 @@
   "dependencies": {
     "chokidar": "^3.6.0",
     "fast-glob": "^3.3.2",
-    "glob": "^10.4.1",
+    "glob": "^10.4.5",
     "gray-matter": "^4.0.3",
     "neverthrow": "^8.2.0",
     "typescript": "^5.4.5",

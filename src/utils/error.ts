@@ -1,6 +1,12 @@
 import { Result, ok as resultOk, err as resultErr } from 'neverthrow';
 
 /**
+ * Type alias for Promise<Result<T, AppError>>
+ * Used for async functions that return a Result
+ */
+export type PasResult<T> = Promise<Result<T, AppError>>;
+
+/**
  * Enum of error codes used throughout the application.
  */
 export enum ErrorCode {
@@ -41,12 +47,34 @@ export const err = <T>(error: AppError): Result<T, AppError> => {
 };
 
 /**
+ * Creates a Promise that resolves to a Result.err with the specified error.
+ * Useful for async functions that return a PasResult.
+ * 
+ * @param error The error to wrap in a Result
+ * @returns A Promise that resolves to a Result.err containing the error
+ */
+export const pasErr = <T>(error: AppError): PasResult<T> => {
+  return Promise.resolve(err<T>(error));
+};
+
+/**
  * Creates a Result.ok with the specified value.
  * @param value The value to wrap in a Result
  * @returns A Result.ok containing the value
  */
 export const ok = <T>(value: T): Result<T, AppError> => {
   return resultOk<T, AppError>(value);
+};
+
+/**
+ * Creates a Promise that resolves to a Result.ok with the specified value.
+ * Useful for async functions that return a PasResult.
+ * 
+ * @param value The value to wrap in a Result
+ * @returns A Promise that resolves to a Result.ok containing the value
+ */
+export const pasOk = <T>(value: T): PasResult<T> => {
+  return Promise.resolve(ok<T>(value));
 };
 
 /**
