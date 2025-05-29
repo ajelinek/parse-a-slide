@@ -1,54 +1,62 @@
 ---
 trigger: model_decision
-description: Apply when implementing or modifying tests, test setup functions, page objects, or end-to-end test scenarios
-globs: 
----
----
-description: Apply when implementing or modifying tests, test setup functions, page objects, or end-to-end test scenarios
+description: Apply when implementing or modifying tests, test setup functions, Unit Test, Intergration Tsts, page objects, or end-to-end test scenarios
 ---
 
+---
+
+## description: Apply when implementing or modifying tests, test setup functions, page objects, or end-to-end test scenarios
+
 # Testing
+
 - Vitest for all unit tests.
 - Avoid mocking where possible; prefer testing with real objects or simple stubs if necessary.
 - Generate data required for each test or use small, focused fixtures.
 - Use a `setup` function for common test setup if it simplifies tests; otherwise, setup within each test.
 - Aim for clear, concise tests that focus on a single unit of behavior.
 - No comments within the tests unless explaining a particularly complex or non-obvious piece of logic.
-- No describe blocks.  use a setup function instead that is called for each test.  
+- No describe blocks. use a setup function instead that is called for each test.
 - BeforeEach and AfterEach can be used for generic cleanup and teardown of mocks, but is minimal.
 
 ## Unit Test Structure
+
 - Group related tests for a module or function.
 - Use descriptive test names that clearly state what is being tested and the expected outcome.
 - Example: `test('parseMarkdown should return an empty array for empty input', () => { ... });`
 
 ## Assertions
+
 - Use Vitest's `expect` assertion library.
 - Make assertions specific and check only what is relevant to the test.
 
 ## Test data generation
+
 - For simple tests, inline data is acceptable.
 - For more complex data, consider utility functions to generate test data.
 - Ensure test data covers edge cases and common scenarios.
 - Use Faker.js if realistic but varied data is needed, but ensure tests remain deterministic.
 
 # Anti-Patterns
+
 - Overly complex test setups.
 - Tests that rely on external services or a specific environment (keep unit tests isolated).
 - Tests that assert on implementation details rather than public API behavior.
 - Flaky tests (tests that pass or fail inconsistently).
 
 ## e2e tests
+
 - All features must have E2E tests.
 - Use Page Object Pattern.
-- No local or private attributes. 
+- No local or private attributes.
 - Allow nesting selectors (pass higher-level context).
 - Focus on outcome-based testing.
 - Tests should be flexible to layout changes.
 - Only test what user sees/hears (no style/attribute verification).
 - New code/features require matching tests.
 - Use data generation utilities for test data.
+
 ## Selectors / Locators
+
 - Use an async setUp function to setup test vs BeforeEach or BeforeAll.## Selectors / Locators
 - Prefer accessibility selectors (`getBy*`) when the HTML contains proper semantic elements and ARIA attributes.
 - When HTML lacks ARIA roles, update the source HTML to include semantic elements (e.g., `<section aria-label="hero">` instead of `<div class="hero">`)
@@ -59,9 +67,10 @@ description: Apply when implementing or modifying tests, test setup functions, p
   2. `getByText()` - based on visible content
   3. `locator()` with semantic CSS selectors - when elements lack proper ARIA roles
 - Avoid selectors for individual attributes (use `getByText`).
-- Locators in page objects should be functions defined on the class.  
+- Locators in page objects should be functions defined on the class.
 
 ## Page Object Pattern
+
 - Define page objects as classes that extend from a base page when appropriate
 - Use component composition for reusable UI elements (like headers, footers, etc.)
 - Define locators as arrow functions that return Playwright locators (lazy evaluation)
@@ -71,6 +80,7 @@ description: Apply when implementing or modifying tests, test setup functions, p
 - Include reusable assertions that validate page state
 
 ## Locator Pattern
+
 - Define locators as arrow functions that return fresh locators: `elementName = () => this.page.locator(selector)`
 - This pattern ensures locators are evaluated at runtime, preventing stale references
 - Group related locators together in the class definition
@@ -78,35 +88,41 @@ description: Apply when implementing or modifying tests, test setup functions, p
 - For component locators, consider passing parent context: `childElement = (parent) => parent.getByRole("button")`
 
 ## Component Composition
+
 - Create component classes for reusable UI elements (headers, forms, modals)
 - Instantiate components in the page object constructor
 - Pass the page object to component constructors
 - Components should follow the same locator patterns as page objects
 
 ## Fixtures
+
 - Create custom fixtures for common test prerequisites (authenticated users, data setup)
 - Use the Playwright test.extend() pattern for fixtures
 - Return created test data from fixtures for use in tests
 - Clean up created test data after tests when necessary
 
 ## Test setUp Function
+
 - Function should be unique per test file and contain only setup logic
 - Function should accept test context parameters directly
 - Additional parametters can be passed in as needed for the tests
-- Simple Example function.  
+- Simple Example function.
+
   ```typescript
   async function setUp(page: Page) {
     const somePage = new SomePage(page)
     await somePage.goto()
     return { somePage, otherContext }
   }
-  
+
   test('test description', async ({ page }) => {
     const { somePage } = await setUp(page)
     // test assertions
   })
   ```
+
 - Example with custom parameters and data generation
+
   ```typescript
   async function setUp(page: Page, user: User) {
     const somePage = new SomePage(page)
@@ -114,7 +130,7 @@ description: Apply when implementing or modifying tests, test setup functions, p
     await somePage.goto()
     return { somePage, otherContext }
   }
-  
+
   test('test description', async ({ page }) => {
     const user = createTestUser()
     const { somePage } = await setUp(page, user)
@@ -123,11 +139,13 @@ description: Apply when implementing or modifying tests, test setup functions, p
   ```
 
 # Anti-Patterns
+
 - NO data-testId usage
-- NO waitFor* usage
+- NO waitFor\* usage
 - NO timeout usage
 
 # Test data generation
+
 - Utilities per table/object.
 - Allow overriding specific fields.
 - Only specify needed attributes for assertions.

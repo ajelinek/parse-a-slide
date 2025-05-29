@@ -2,24 +2,24 @@
 
 This document outlines the features and user stories for the CLI Slide Parser project, organized to facilitate incremental development and testing.
 
-[ ] E1: Core Infrastructure - Foundational elements required for the application, including logging, CLI setup, file system utilities, and testing support.
+[x] E1: Core Infrastructure - Foundational elements required for the application, including logging, CLI setup, file system utilities, and testing support.
 
-- [ ] **F1: Logger Implementation** - Develop a centralized logger utility.
+- [x] **F1: Logger Implementation** - Develop a centralized logger utility.
 
-  - [ ] **S1**: Support for info, error, and debug log levels.
-  - [ ] **S2**: CLI flags (`--verbose`, `--quiet`) to control log output verbosity.
+  - [x] **S1**: Support for info, error, and debug log levels.
+  - [x] **S2**: CLI flags (`--verbose`, `--quiet`) to control log output verbosity.
 
-- [ ] **F2: Basic CLI Structure** - Set up the basic command-line interface using `yargs`.
+- [x] **F2: Basic CLI Structure** - Set up the basic command-line interface using `yargs`.
 
-  - [ ] **S1**: Implement a `build` command in the CLI.
-  - [ ] **S2**: Parse basic options (`input`, `output`, `format`) and pass to `BuildHandler`.
+  - [x] **S1**: Implement a `build` command in the CLI.
+  - [x] **S2**: Parse basic options (`input`, `output`, `format`) and pass to `BuildHandler`.
 
-- [ ] **F3: FSUtils Implementation** - Create the file system utility module.
+- [x] **F3: FSUtils Implementation** - Create the file system utility module.
 
-  - [ ] **S1**: Provide `neverthrow`-wrapped functions for reading, writing, and finding files by glob patterns.
+  - [x] **S1**: Provide `neverthrow`-wrapped functions for reading, writing, and finding files by glob patterns.
 
-- [ ] **F4: Testing Utility Setup** - Develop the initial testing utility for creating file/directory structures.
-  - [ ] **S1**: Utility to set up test-specific file structures from a configuration for realistic file-based testing.
+- [x] **F4: Testing Utility Setup** - Develop the initial testing utility for creating file/directory structures.
+  - [x] **S1**: Utility to set up test-specific file structures from a configuration for realistic file-based testing.
 
 ---
 
@@ -31,6 +31,12 @@ This document outlines the features and user stories for the CLI Slide Parser pr
   - [ ] **S2**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the main presentation in their directory.
   - [ ] **S3**: Return `PresentationMetadata` (paths only, no content) for each presentation.
   - [ ] **S4**: Validate against conflicting `index.pres` files in the same directory.
+
+- [ ] **F5.1: Global Presentation Fragments** - Implement the `Discovery` module to find presentation and fragment files which are not part of a specific presentation. (Any folder which does not have a root `index.pres` file)
+
+  - [ ] **S1**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the global presentation in their directory.
+  - [ ] **S2**: Return `FragmentMetadata` (paths only, no content) for each fragment.
+  - [ ] **S3**: Validate against conflicting `index.pres` files in the same directory.
 
 - [ ] **F6: Presentation Inflation** - Implement logic in `BuildHandler` to load content for discovered presentations.
 
