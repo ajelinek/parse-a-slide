@@ -154,7 +154,7 @@ Feature: Discover Presentations in Directory
   I want to find all presentations in a directory
   So that I can process them for building
 
-  Scenario: Find single presentation with index file
+   [x] Scenario: Find single presentation with index file
     Given an input directory with the following structure:
       """
       /input-dir
@@ -165,7 +165,7 @@ Feature: Discover Presentations in Directory
     And the PresentationMetadata should have the correct id, url, fullPath, name, and extension
     And the PresentationMetadata should have 1 FragmentMetadata with isEntry set to true
 
-  Scenario: Find presentation with multiple fragments
+  [x] Scenario: Find presentation with multiple fragments
     Given an input directory with the following structure:
       """
       /input-dir
@@ -180,7 +180,7 @@ Feature: Discover Presentations in Directory
     And slide1 FragmentMetadata should have isEntry set to false
     And slide2 FragmentMetadata should have isEntry set to false
 
-  Scenario: Find multiple presentations in subdirectories
+  [x] Scenario: Find multiple presentations in subdirectories
     Given an input directory with the following structure:
       """
       /input-dir
@@ -194,7 +194,7 @@ Feature: Discover Presentations in Directory
     And each PresentationMetadata should have the correct directory name
     And each PresentationMetadata should have 1 FragmentMetadata with isEntry set to true
 
-  Scenario: Find presentation with MDX extension
+  [x] Scenario: Find presentation with MDX extension
     Given an input directory with the following structure:
       """
       /input-dir
@@ -205,7 +205,7 @@ Feature: Discover Presentations in Directory
     And the PresentationMetadata should have extension set to ".pres.mdx"
     And the PresentationMetadata should have 1 FragmentMetadata with isEntry set to true
 
-  Scenario: Find standalone presentation file
+  [x] Scenario: Find standalone presentation file
     Given an input directory with the following structure:
       """
       /input-dir
@@ -216,7 +216,7 @@ Feature: Discover Presentations in Directory
     And the PresentationMetadata should have name set to "standalone"
     And the PresentationMetadata should have 1 FragmentMetadata with isEntry set to true
 
-  Scenario: Find presentation with fragments in deeply nested subfolders
+  [x] Scenario: Find presentation with fragments in deeply nested subfolders
     Given an input directory with the following structure:
       """
       /input-dir
@@ -243,7 +243,7 @@ Feature: Discover Presentations in Directory
     And the FragmentMetadata for "fragment3.pres.md" should have isEntry set to false
     And the FragmentMetadata for "fragment5.pres.md" should have isEntry set to false
 
-  Scenario: Ignore non-presentation files
+  [x] Scenario: Ignore non-presentation files
     Given an input directory with the following structure:
       """
       /input-dir
@@ -263,7 +263,7 @@ Feature: Discover Presentations in Directory
     And the FragmentMetadata for "regular.mdx" should have isEntry set to false
     And the PresentationMetadata should not include non-presentation files
 
-  Scenario: Find presentation with index file nested two directories deep
+  [x] Scenario: Find presentation with index file nested two directories deep
     Given an input directory with the following structure:
       """
       /input-dir
@@ -278,7 +278,7 @@ Feature: Discover Presentations in Directory
     And the PresentationMetadata should have 2 FragmentMetadata objects
     And the FragmentMetadata for "index.pres.md" should have isEntry set to true
 
-  Scenario: Standalone fragments without index file
+  [x] Scenario: Standalone fragments without index file
     Given an input directory with the following structure:
       """
       /input-dir
@@ -288,7 +288,7 @@ Feature: Discover Presentations in Directory
     When I call the discoverPresentations function with "/input-dir"
     Then I should receive a Result.ok with an empty array
 
-  Scenario: Fragments in subdirectory without index file
+  [x] Scenario: Fragments in subdirectory without index file
     Given an input directory with the following structure:
       """
       /input-dir
@@ -299,7 +299,7 @@ Feature: Discover Presentations in Directory
     When I call the discoverPresentations function with "/input-dir"
     Then I should receive a Result.ok with an empty array
 
-  Scenario: Handle empty directory
+  [x] Scenario: Handle empty directory
     Given an input directory with the following structure:
       """
       /empty-dir
@@ -319,13 +319,13 @@ Feature: Handle Discovery Errors
   I want proper error handling during presentation discovery
   So that the system fails gracefully
 
-  Scenario: Handle non-existent directory
+  [x] Scenario: Handle non-existent directory
     Given a non-existent directory path "/non-existent-dir"
     When I call the discoverPresentations function with "/non-existent-dir"
     Then I should receive a Result.err with an appropriate error message
     And the error code should indicate a FILE_SYSTEM_ERROR
 
-  Scenario: Handle conflicting index files
+  [x] Scenario: Handle conflicting index files
     Given an input directory with the following structure:
       """
       /input-dir
@@ -336,20 +336,20 @@ Feature: Handle Discovery Errors
     Then I should receive a Result.err with an appropriate error message
     And the error code should indicate a CONFLICTING_INDEX_FILES error
 
-  Scenario: Handle permission denied
+  [x] Scenario: Handle permission denied
     Given an input directory "/restricted-dir" without read permissions
     When I call the discoverPresentations function with "/restricted-dir"
     Then I should receive a Result.err with an appropriate error message
     And the error code should indicate a PERMISSION_DENIED error
 
 
-  Scenario: Handle unexpected file system error
+  [x] Scenario: Handle unexpected file system error
     Given a mock file system that generates an error when accessing "/error-dir"
     When I call the discoverPresentations function with "/error-dir"
     Then I should receive a Result.err with an appropriate error message
     And the error code should indicate a FILE_SYSTEM_ERROR
 
-  Scenario: Handle conflicting index files in subdirectories
+  [x] Scenario: Handle conflicting index files in subdirectories
     Given an input directory with the following structure:
       """
       /input-dir
