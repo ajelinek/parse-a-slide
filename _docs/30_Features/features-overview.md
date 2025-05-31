@@ -25,12 +25,12 @@ This document outlines the features and user stories for the CLI Slide Parser pr
 
 [ ] E2: Core Parsing Pipeline - Implementing the main workflow for discovering, parsing, and generating presentation slides.
 
-- [ ] **F5: Presentation Discovery** - Implement the `Discovery` module to find presentation and fragment files.
+- [x] **F5: Presentation Discovery** - Implement the `Discovery` module to find presentation and fragment files.
 
-  - [ ] **S1**: Identify `index.pres.md(x)` files as main presentations.
-  - [ ] **S2**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the main presentation in their directory.
-  - [ ] **S3**: Return `PresentationMetadata` (paths only, no content) for each presentation.
-  - [ ] **S4**: Validate against conflicting `index.pres` files in the same directory.
+  - [x] **S1**: Identify `index.pres.md(x)` files as main presentations.
+  - [x] **S2**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the main presentation in their directory.
+  - [x] **S3**: Return `PresentationMetadata` (paths only, no content) for each presentation.
+  - [x] **S4**: Validate against conflicting `index.pres` files in the same directory.
 
 - [ ] **F5.1: Global Presentation Fragments** - Implement the `Discovery` module to find presentation and fragment files which are not part of a specific presentation. (Any folder which does not have a root `index.pres` file)
 
