@@ -30,3 +30,11 @@ export interface PresentationMetadata {
   entrySlideId: string // ID of the entry slide
   fragmentMetaData: FragmentMetadata[] // Array of fragment metadata
 }
+
+/**
+ * Complete presentation containing metadata and fragments.
+ */
+export interface Presentation {
+  metadata: PresentationMetadata
+  fragments: Fragment[] // Array of Fragment objects, assumed to be pre-loaded
+}

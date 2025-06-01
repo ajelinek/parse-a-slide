@@ -58,10 +58,12 @@ The core of the parser will be a recursive function, let's call it `processConte
 
 1.  Initialize `allSlideNodes = []`.
 2.  Build `fragmentMap` from `presentation.fragments` for quick lookup of referenced fragments.
-3.  **Identify Entry Fragment(s)**: Determine the primary entry fragment(s) from `presentation.fragments`. based on the `entryId` attribute in `presentation.metadata`.
+3.  **Identify Entry Fragment**: Determine the primary entry fragment from `presentation.fragments` based on the `entryId` attribute in `presentation.metadata`.
 4.  If no entry fragment is found, return an appropriate error (e.g., `Err(createError('No entry fragment found', ErrorCode.PARSER_ERROR))`).
-5.  For the entry fragment: (Can only be one)
-    - Call `processContentRecursive(entryFragment.content, null, null, entryFragment.metadata.fullPath, fragmentMap, allSlideNodes, idGenerator)`.
+5.  For the entry fragment:
+    - Parse its frontmatter (if any) from the beginning of `entryFragment.content`. Let this be `entryFragmentFrontmatter`.
+    - The remaining content (after frontmatter) is `entryFragmentSlideContent`.
+    - Call `processFragmentContent(entryFragmentSlideContent, entryFragmentFrontmatter, null, null, entryFragment.metadata, fragmentMap, allSlideNodes, idGenerator)`.
 6.  **Post-Linking Refinement**: After the initial parsing has populated `allSlideNodes` and established `parentSlideId` and `childSlideId` links:
     1.  **Sibling Linking**: Iterate through `allSlideNodes`. For each node, identify its siblings (nodes with the same `parentSlideId`). Based on their order of appearance (which should be preserved from parsing):
         - Set `previousSlideId` for each node to its preceding sibling, if one exists.
@@ -73,9 +75,13 @@ The core of the parser will be a recursive function, let's call it `processConte
 7.  **Processor Pipeline**: Apply processors to each node in `allSlideNodes`.
 8.  Return `Ok(allSlideNodes)`.
 
-**Core Parsing Logic:**
+**Core Parsing Logic (Conceptual: `processFragmentContent`):**
 
-The detailed logic for parsing content, handling delimiters, and embedding fragments is visually represented in the "High-Level Parsing Flow" diagram below and specified in detail in Section 6: "Key Assumptions, Behaviors, and Error Handling". The process involves iterating through content, managing state (current parent, active node for child creation), and recursively processing embedded fragments.
+This function (or equivalent iterative logic) is responsible for parsing the slide content *of a single fragment*, applying its pre-parsed `fragmentFrontmatter` to all slides generated from it.
+
+The detailed logic for segmenting content by delimiters, handling hierarchical levels, and embedding *other* fragments (which would themselves have their own frontmatter parsed before their content is processed) is visually represented in the "High-Level Parsing Flow" diagram below and specified in detail in Section 6. When a `SlideNode` is created from a segment of this fragment's content, its `userDefinedFrontMatter` field is populated with `fragmentFrontmatter`.
+
+When embedding another fragment, the main loop would first parse the embedded fragment's own frontmatter, then call `processFragmentContent` for its content, passing the embedded fragment's specific frontmatter.
 
 **High-Level Parsing Flow:**
 
@@ -172,283 +178,371 @@ export type Asset = {
 
 `Result<SlideNode[], AppError>`: A flat array of `SlideNode`s, fully linked.
 
-### 2.5. Examples
+### 2.5. Test Scenarios
 
-This section illustrates how various Markdown content structures within fragments are parsed into `SlideNode`s, focusing on ID generation and navigation links. For brevity, `SlideNode` content and other metadata are omitted. Assume `SlideNode.url`, `title`, `description`, etc., are populated from frontmatter or defaults.
+This section outlines test scenarios for the Core Parser module using Gherkin syntax.
 
-**Assumed ID Generation Scheme:**
+#### 2.5.1. Parser Module - Happy Path
 
-- Root/Sibling slides: `S1`, `S2`, `S3`...
-- Child slides: `<parentId>.C1`, `<parentId>.C2`... (e.g., `S1.C1`, `S1.C1.C1`)
+##### Scenario Group: Basic Slide Creation & Navigation
 
-**Example 1: Simple Sibling Slides**
+Scenario: Parsing a single slide from an entry fragment
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # Slide 1
+    Content for Slide 1.
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 1 SlideNode should be created
+  And the SlideNode "S1" should have:
+    | property            | value    |
+    | content             | "# Slide 1\nContent for Slide 1." |
+    | navigation.parentSlideId | null     |
+    | navigation.childSlideId  | null     |
+    | navigation.previousSlideId | null     |
+    | navigation.nextSlideId   | null     |
+    | delimiterLevel      | 0        |
 
-**Fragment Content (`entry.pres`):**
+Scenario: Parsing multiple top-level sibling slides
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # Slide 1
+    ---
+    # Slide 2
+    ---
+    # Slide 3
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 3 SlideNodes should be created with IDs "S1", "S2", "S3"
+  And SlideNode "S1" should have navigation:
+    | property            | value    |
+    | parentSlideId       | null     |
+    | childSlideId        | null     |
+    | previousSlideId     | null     |
+    | nextSlideId         | "S2"     |
+  And SlideNode "S2" should have navigation:
+    | property            | value    |
+    | parentSlideId       | null     |
+    | childSlideId        | null     |
+    | previousSlideId     | "S1"     |
+    | nextSlideId         | "S3"     |
+  And SlideNode "S3" should have navigation:
+    | property            | value    |
+    | parentSlideId       | null     |
+    | childSlideId        | null     |
+    | previousSlideId     | "S2"     |
+    | nextSlideId         | null     |
 
-```
-# Slide 1 Title
-Content for Slide 1.
----
-# Slide 2 Title
-Content for Slide 2.
----
-# Slide 3 Title
-Content for Slide 3.
-```
+##### Scenario Group: Hierarchical Slide Creation & Navigation
 
-**Resulting `SlideNode`s (simplified):**
+Scenario: Parsing a parent slide with one child
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # Parent P1
+    --->
+    # Child C1
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 2 SlideNodes should be created with IDs "S1", "S1.C1"
+  And SlideNode "S1" should have navigation:
+    | property            | value    |
+    | parentSlideId       | null     |
+    | childSlideId        | "S1.C1"  |
+    | previousSlideId     | null     |
+    | nextSlideId         | null     | # As S1.C1 is its only descendant in this path
+  And SlideNode "S1" should have delimiterLevel 0
+  And SlideNode "S1.C1" should have navigation:
+    | property            | value    |
+    | parentSlideId       | "S1"     |
+    | childSlideId        | null     |
+    | previousSlideId     | null     |
+    | nextSlideId         | null     | # Parent S1 has no next sibling
+  And SlideNode "S1.C1" should have delimiterLevel 1
 
-```json
-[
-  {
-    "id": "S1",
-    "content": "# Slide 1 Title\nContent for Slide 1.",
-    "navigation": { "parentSlideId": null, "previousSlideId": null, "nextSlideId": "S2", "childSlideId": null }
-  },
-  {
-    "id": "S2",
-    "content": "# Slide 2 Title\nContent for Slide 2.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S1", "nextSlideId": "S3", "childSlideId": null }
-  },
-  {
-    "id": "S3",
-    "content": "# Slide 3 Title\nContent for Slide 3.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S2", "nextSlideId": null, "childSlideId": null }
-  }
-]
-```
+Scenario: Parsing multi-level child slides
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # P1
+    --->
+    # P1.C1
+    -->>
+    # P1.C1.C1
+    ---
+    # P2
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 4 SlideNodes should be created with IDs "S1", "S1.C1", "S1.C1.C1", "S2"
+  And SlideNode "S1" should have childSlideId "S1.C1" and nextSlideId "S2"
+  And SlideNode "S1.C1" should have parentSlideId "S1", childSlideId "S1.C1.C1", and nextSlideId "S2"
+  And SlideNode "S1.C1" should have delimiterLevel 1
+  And SlideNode "S1.C1.C1" should have parentSlideId "S1.C1", childSlideId null, and nextSlideId "S2"
+  And SlideNode "S1.C1.C1" should have delimiterLevel 2
+  And SlideNode "S2" should have parentSlideId null, childSlideId null, and previousSlideId "S1"
 
-**Example 2: Parent with Child Slides**
+Scenario: Parsing an empty intermediate child slide
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # Parent P1
+    --->
+    --->
+    # Grandchild GC1
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 3 SlideNodes should be created: "S1" (P1), "S1.C1" (empty), "S1.C1.C1" (GC1)
+  And SlideNode "S1.C1" should have content "" or be an empty slide marker
+  And SlideNode "S1.C1" should have parentSlideId "S1" and childSlideId "S1.C1.C1"
+  And SlideNode "S1.C1" should have delimiterLevel 1
+  And SlideNode "S1.C1.C1" should have parentSlideId "S1.C1"
+  And SlideNode "S1.C1.C1" should have delimiterLevel 2
 
-**Fragment Content (`entry.pres`):**
+Scenario: Last child's next slide links to parent's next slide
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And the Fragment "entry.pres.md" contains:
+    """
+    # S1
+    --->
+    # S1.C1
+    --->
+    # S1.C1.C1
+    ---
+    # S2
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And SlideNode "S1.C1.C1" should have nextSlideId "S2"
 
-```
-# Parent Slide S1
-Content for S1.
---->
-# Child Slide S1.C1
-Content for S1.C1.
----
-# Parent Slide S2
-Content for S2.
---->
-# Child Slide S2.C1
-Content for S2.C1.
----
-# Parent Slide S3
-Content for S3.
-```
+##### Scenario Group: Fragment Embedding
 
-**Resulting `SlideNode`s (simplified):**
+Scenario: Embedding a fragment as a sibling (reference on its own line)
+  Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "include.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Entry Slide 1
+    [Details](./include.pres.md)
+    # Entry Slide 2
+    """
+  And Fragment "include.pres.md" contains:
+    """
+    # Included Slide A
+    ---
+    # Included Slide B
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 4 SlideNodes should be created: "S1" (Entry 1), "S1.includeS1" (Incl A), "S1.includeS2" (Incl B), "S2" (Entry 2)
+  And SlideNode "S1" should have nextSlideId "S1.includeS1"
+  And SlideNode "S1.includeS1" should have parentSlideId null and previousSlideId "S1" and nextSlideId "S1.includeS2" and delimiterLevel 0
+  And SlideNode "S1.includeS2" should have parentSlideId null and previousSlideId "S1.includeS1" and nextSlideId "S2" and delimiterLevel 0
+  And SlideNode "S2" should have previousSlideId "S1.includeS2"
 
-```json
-[
-  {
-    "id": "S1",
-    "content": "# Parent Slide S1\nContent for S1.",
-    "navigation": { "parentSlideId": null, "previousSlideId": null, "nextSlideId": "S2", "childSlideId": "S1.C1" }
-  },
-  {
-    "id": "S1.C1",
-    "content": "# Child Slide S1.C1\nContent for S1.C1.",
-    "navigation": { "parentSlideId": "S1", "previousSlideId": null, "nextSlideId": "S2", "childSlideId": null }
-  },
-  {
-    "id": "S2",
-    "content": "# Parent Slide S2\nContent for S2.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S1", "nextSlideId": "S3", "childSlideId": "S2.C1" }
-  },
-  {
-    "id": "S2.C1",
-    "content": "# Child Slide S2.C1\nContent for S2.C1.",
-    "navigation": { "parentSlideId": "S2", "previousSlideId": null, "nextSlideId": "S3", "childSlideId": null }
-  },
-  {
-    "id": "S3",
-    "content": "# Parent Slide S3\nContent for S3.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S2", "nextSlideId": null, "childSlideId": null }
-  }
-]
-```
+Scenario: Embedding a fragment as a child (reference on its own line with child delimiter)
+  Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "child.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Parent Slide P1
+    ---> [Go To Child](./child.pres.md)
+    ---
+    # Sibling Slide S2
+    """
+  And Fragment "child.pres.md" contains:
+    """
+    # Child Content C1
+    ---
+    # Child Content C2
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 4 SlideNodes should be created: "S1" (P1), "S1.childS1" (C1), "S1.childS2" (C2), "S2" (S2)
+  And SlideNode "S1" should have childSlideId "S1.childS1" and nextSlideId "S2"
+  And SlideNode "S1.childS1" should have parentSlideId "S1" and previousSlideId null and nextSlideId "S1.childS2" and delimiterLevel 1
+  And SlideNode "S1.childS2" should have parentSlideId "S1" and previousSlideId "S1.childS1" and nextSlideId "S2" and delimiterLevel 0
 
-_(Note: `S1.C1` (last child of `S1`) now has `nextSlideId: "S2"` because its parent `S1`'s `nextSlideId` is `"S2"`. Similarly, `S2.C1` (last child of `S2`) has `nextSlideId: "S3"` because its parent `S2`'s `nextSlideId` is `"S3"`.)_
+Scenario: Fragment reference not on its own line is ignored for embedding
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Slide 1
+    Some text [Details](./ignored.pres.md) and more text.
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 1 SlideNode "S1" should be created with content "# Slide 1" (reference line ignored for content)
 
-**Example 3: Fragment Embedding (Sequential)**
+##### Scenario Group: Frontmatter Parsing
 
-**Fragment Content (`entry.pres`):**
+Scenario: Fragment-level frontmatter applied to all slides from that fragment
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    ---
+    title: Global Fragment Title
+    theme: dark
+    ---
+    # Slide 1
+    Content for S1.
+    ---
+    # Slide 2
+    Content for S2.
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 2 SlideNodes "S1", "S2" should be created
+  And SlideNode "S1" userDefinedFrontMatter should contain:
+    | key    | value                 |
+    | title  | "Global Fragment Title" |
+    | theme  | "dark"                |
+  And SlideNode "S1" content should be "# Slide 1\nContent for S1."
+  And SlideNode "S2" userDefinedFrontMatter should contain:
+    | key    | value                 |
+    | title  | "Global Fragment Title" |
+    | theme  | "dark"                |
+  And SlideNode "S2" content should be "# Slide 2\nContent for S2."
 
-```
-# Entry Slide 1
-Content before embedding.
----
-[Include Details](./details.pres)
----
-# Entry Slide 2
-Content after embedding.
-```
+Scenario: Fragment-level frontmatter applied correctly during embedding
+  Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "details.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    ---
+    title: Entry Title
+    author: Main Author
+    ---
+    # Entry Slide 1
+    Content for Entry S1.
+    ---
+    [Include Details](./details.pres.md)
+    ---
+    # Entry Slide 2
+    Content for Entry S2.
+    """
+  And Fragment "details.pres.md" contains:
+    """
+    ---
+    title: Details Section Title
+    source: Embedded Fragment
+    ---
+    # Detail Slide D1
+    Content for Detail D1.
+    ---
+    # Detail Slide D2
+    Content for Detail D2.
+    """
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And 4 SlideNodes "S1", "S1.detailsS1", "S1.detailsS2", "S2" should be created
+  And SlideNode "S1" userDefinedFrontMatter should contain:
+    | key    | value           |
+    | title  | "Entry Title"   |
+    | author | "Main Author"   |
+  And SlideNode "S1" content should be "# Entry Slide 1\nContent for Entry S1."
+  And SlideNode "S1.detailsS1" userDefinedFrontMatter should contain:
+    | key    | value                   |
+    | title  | "Details Section Title" |
+    | source | "Embedded Fragment"     |
+  And SlideNode "S1.detailsS1" content should be "# Detail Slide D1\nContent for Detail D1."
+  And SlideNode "S1.detailsS2" userDefinedFrontMatter should contain:
+    | key    | value                   |
+    | title  | "Details Section Title" |
+    | source | "Embedded Fragment"     |
+  And SlideNode "S1.detailsS2" content should be "# Detail Slide D2\nContent for Detail D2."
+  And SlideNode "S2" userDefinedFrontMatter should contain:
+    | key    | value           |
+    | title  | "Entry Title"   |
+    | author | "Main Author"   |
+  And SlideNode "S2" content should be "# Entry Slide 2\nContent for Entry S2."
 
-**Fragment Content (`details.pres`):**
+#### 2.5.2. Parser Module - Error Path & Warnings
 
-```
-# Detail Slide D1
-Details content 1.
----
-# Detail Slide D2
-Details content 2.
-```
+##### Scenario Group: Entry Point Errors
 
-**Resulting `SlideNode`s (simplified, assuming `details.pres` is parsed and its nodes replace the reference):**
+Scenario: No entry fragment specified in presentation metadata
+  Given a Presentation with fragments but no "entryId" in metadata
+  When the Parser processes the Presentation
+  Then the result should be an error
+  And the error code should be "PARSER_ERROR" or similar (e.g. "NO_ENTRY_FRAGMENT")
 
-```json
-[
-  {
-    "id": "S1", // Entry Slide 1
-    "content": "# Entry Slide 1\nContent before embedding.",
-    "navigation": { "parentSlideId": null, "previousSlideId": null, "nextSlideId": "S2", "childSlideId": null }
-  },
-  // Slides from details.pres are injected here
-  {
-    "id": "S2", // Detail Slide D1 (was S1 in its own fragment context)
-    "content": "# Detail Slide D1\nDetails content 1.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S1", "nextSlideId": "S3", "childSlideId": null }
-  },
-  {
-    "id": "S3", // Detail Slide D2 (was S2 in its own fragment context)
-    "content": "# Detail Slide D2\nDetails content 2.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S2", "nextSlideId": "S4", "childSlideId": null }
-  },
-  {
-    "id": "S4", // Entry Slide 2
-    "content": "# Entry Slide 2\nContent after embedding.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S3", "nextSlideId": null, "childSlideId": null }
-  }
-]
-```
+##### Scenario Group: Hierarchical Delimiter Sequencing Errors
 
-_(Note: ID scheme for embedded fragments needs careful definition. Here, they are re-numbered sequentially in the main flow for simplicity of example)._
+Scenario: Attempting to create a child slide skipping a delimiter level
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Parent P1 (level 0)
+    -->> 
+    # Child C1 (attempted level 2)
+    """
+  When the Parser processes the Presentation
+  Then the result should be an error
+  And the error code should be "PARSER_DELIMITER_SEQUENCE_ERROR"
 
-**Example 4: Fragment Embedding (Hierarchical)**
+Scenario: Attempting to create a child slide with non-increasing delimiter level
+  Given a Presentation with one entry Fragment "entry.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Parent P1 (level 0)
+    --->
+    # Child C1 (level 1)
+    ---> 
+    # Grandchild GC1 (attempted level 1 instead of 2)
+    """
+  When the Parser processes the Presentation
+  Then the result should be an error
+  And the error code should be "PARSER_DELIMITER_SEQUENCE_ERROR"
 
-**Fragment Content (`entry.pres`):**
+##### Scenario Group: Fragment Embedding Issues
 
-```
-# Main Topic M1
-Content for M1.
---->
-[Include Subtopics](./subtopics.pres)
----
-# Main Topic M2
-Content for M2.
-```
+Scenario: Referenced fragment not found in fragment map
+  Given a Presentation with an entry Fragment "entry.pres.md"
+  And Fragment "entry.pres.md" contains:
+    """
+    # Slide 1
+    [Link To Missing](./nonexistent.pres.md)
+    """
+  And the fragmentMap does not contain "nonexistent.pres.md"
+  When the Parser processes the Presentation
+  Then the result should be successful
+  And a warning should be logged: "Fragment reference './nonexistent.pres.md' not found. Skipping embedding."
+  And 1 SlideNode "S1" should be created with content "# Slide 1" (reference line ignored for content)
 
-**Fragment Content (`subtopics.pres`):**
+Scenario: Circular fragment reference detection
+  Given a Presentation with Fragment "fragA.pres.md" and Fragment "fragB.pres.md"
+  And Fragment "fragA.pres.md" (entry) contains:
+    """
+    # Frag A Slide 1
+    [Link to B](./fragB.pres.md)
+    """
+  And Fragment "fragB.pres.md" contains:
+    """
+    # Frag B Slide 1
+    [Link to A](./fragA.pres.md)
+    """
+  When the Parser processes the Presentation
+  Then the result should be an error
+  And the error code should be "PARSER_CIRCULAR_REFERENCE"
+  And the error message should indicate the circular dependency (e.g., "fragA.pres.md -> fragB.pres.md -> fragA.pres.md")
 
-```m
-# Subtopic S1
-Content for S1.
----
-# Subtopic S2
-Content for S2.
-```
-
-**Resulting `SlideNode`s (simplified):**
-
-```json
-[
-  {
-    "id": "S1",
-    "content": "# Main Topic M1\nContent for M1.",
-    "navigation": {
-      "parentSlideId": null,
-      "previousSlideId": null,
-      "nextSlideId": "S2",
-      "childSlideId": "S1.subtopicsS1"
-    }
-  },
-  {
-    "id": "S1.subtopicsS1", // From subtopics.pres, child of S1
-    "content": "# Subtopic S1\nContent for S1.",
-    "navigation": {
-      "parentSlideId": "S1",
-      "previousSlideId": null,
-      "nextSlideId": "S1.subtopicsS2",
-      "childSlideId": null
-    }
-  },
-  {
-    "id": "S1.subtopicsS2", // From subtopics.pres, child of S1, sibling of S1.subtopicsS1
-    "content": "# Subtopic S2\nContent for S2.",
-    "navigation": {
-      "parentSlideId": "S1",
-      "previousSlideId": "S1.subtopicsS1",
-      "nextSlideId": "S2",
-      "childSlideId": null
-    } // Last child of S1, S1.next is S2
-  },
-  {
-    "id": "S2",
-    "content": "# Main Topic M2\nContent for M2.",
-    "navigation": { "parentSlideId": null, "previousSlideId": "S1", "nextSlideId": null, "childSlideId": null }
-  }
-]
-```
-
-**Example 5: Deeper Nesting with `-->>` (Conceptual)**
-If `-->>` means "child of the current new child context":
-
-**Fragment Content (`entry.pres`):**
-
-```
-# Level 0
-
---->
-
-# Level 1 Child
-
--->>
-
-# Level 2 Grandchild (child of Level 1 Child)
-```
-
-This would be equivalent to:
-
-```
-# Level 0
-
---->
-
-# Level 1 Child
-
---->
-
-# Level 2 Grandchild (child of Level 1 Child)
-```
-
-**Resulting `SlideNode`s (simplified):**
-
-```json
-[
-  {
-    "id": "S1", // Level 0
-    "content": "# Level 0",
-    "navigation": { "parentSlideId": null, "previousSlideId": null, "nextSlideId": null, "childSlideId": "S1.C1" }
-  },
-  {
-    "id": "S1.C1", // Level 1 Child
-    "content": "# Level 1 Child",
-    "navigation": { "parentSlideId": "S1", "previousSlideId": null, "nextSlideId": null, "childSlideId": "S1.C1.C1" }
-  },
-  {
-    "id": "S1.C1.C1", // Level 2 Grandchild
-    "content": "# Level 2 Grandchild (child of Level 1 Child)",
-    "navigation": { "parentSlideId": "S1.C1", "previousSlideId": null, "nextSlideId": null, "childSlideId": null }
-  }
-]
-```
-
-This implies that the number of `>` in `---[>]` determines the _depth increase_ from the parent of the slide that _would have been created by `---` alone_.
-
-These examples should help clarify the intended parsing behavior. The exact ID generation and linking logic in `processContentRecursive` will need to be robust to handle these cases.
+Scenario: Fragment reference with child delimiter violates delimiter sequence rules
+  Given a Presentation with entry Fragment "index.pres.md" 
+  And Fragment "index.pres.md" contains:
+    """
+    # Parent P1 (level 0)
+    --->
+    # Child C1 (level 1)
+    --->>>
+    # Grandchild GC1 (level 2)
+    """
+  When the Parser processes the Presentation
+  Then the result should be an error
+  And the error code should be "PARSER_DELIMITER_SEQUENCE_ERROR" and the error message should indicate the delimiter sequence violation with the file name and line number (e.g., "Expected delimiter level 2, found level 3 in index.pres.md:3") 
 
 ## 3. System / User Flow
 
@@ -504,7 +598,7 @@ These examples should help clarify the intended parsing behavior. The exact ID g
 
 ### 6.1. General Parsing Behavior
 
-- **Frontmatter Parsing**: Frontmatter within a slide segment (if present) is assumed to be at the very beginning of the segment. The parser will use a library like `gray-matter` to identify and parse this YAML content into `SlideNode.userDefinedFrontMatter`.
+- **Frontmatter Parsing**: Fragment-level frontmatter is parsed once from the very beginning of a fragment's content (e.g., using `gray-matter`) if present. This parsed `userDefinedFrontMatter` object is then applied (copied) to *every* `SlideNode` generated from that specific fragment. Frontmatter is **not** parsed on a per-slide-segment basis from within a fragment after the initial (optional) block.
 - **Parser Synchronicity**: The core parsing logic is **synchronous**. All fragment content is pre-loaded into memory via the `Presentation` object before parsing begins. Future considerations for extremely large presentations might introduce asynchronous operations, which would necessitate changing the `Parser.parse` return type to `PasResult<SlideNode[]>`.
 - **Empty Nested Slides from Delimiters**: If a structure like `ParentSlide ---> ---> ChildSlide` is encountered (i.e., a child delimiter immediately followed by another child delimiter without intervening content for the first child), an empty intermediate slide **is created**. This empty slide becomes the parent of `ChildSlide` and the child of `ParentSlide`.
 
