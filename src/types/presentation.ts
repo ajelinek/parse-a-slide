@@ -11,6 +11,14 @@ export interface FragmentMetadata {
 }
 
 /**
+ * Fragment with content loaded from file system.
+ * Extends FragmentMetadata and adds the actual content of the fragment file.
+ */
+export interface Fragment extends FragmentMetadata {
+  content: string // The content of the fragment file
+}
+
+/**
  * Metadata for a presentation.
  */
 export interface PresentationMetadata {
