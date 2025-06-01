@@ -81,10 +81,10 @@ A `SlideNode` represents a conceptual slide within the presentation. It aggregat
   - `email`: (String, Optional) The email address of the author.
   - `website`: (String, Optional) The website of the author.
 - `navigation`: (Object) Contains identifiers to link related slides:
+  - `parentSlideId`: (String, Nullable) ID of the parent slide, for hierarchical structures.
   - `previousSlideId`: (String, Nullable) ID of the previous slide in sequence.
   - `nextSlideId`: (String, Nullable) ID of the next slide in sequence.
-  - `childSlideIds`: (Array of String) IDs of child slides, for hierarchical structures.
-  - _(Note: Navigational URLs can be constructed using these IDs and a base path or lookup mechanism during rendering or API exposure)._
+  - `childSlideId`: (String, Nullable) ID of the child slide, for hierarchical structures.
 - `userDefinedFrontMatter`: (Object) A key-value store for any additional front matter defined by the user in the source file(s) that contribute to this slide.
 - `appearance`: (Object, Optional) Configuration for the slide's visual styling and interactive elements:
   - `theme`: (String, Optional) Specifies a theme for the slide or overrides the presentation theme.

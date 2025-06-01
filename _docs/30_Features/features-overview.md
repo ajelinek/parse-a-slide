@@ -38,10 +38,10 @@ This document outlines the features and user stories for the CLI Slide Parser pr
   - [ ] **S2**: Return `FragmentMetadata` (paths only, no content) for each fragment.
   - [ ] **S3**: Validate against conflicting `index.pres` files in the same directory.
 
-- [ ] **F6: Presentation Inflation** - Implement logic in `BuildHandler` to load content for discovered presentations.
+- [x] **F6: Presentation Inflation** - Implement logic in `BuildHandler` to load content for discovered presentations.
 
-  - [ ] **S1**: `BuildHandler` reads content of presentations and fragments using `FSUtils`.
-  - [ ] **S2**: `BuildHandler` creates an inflated `Presentation` object with all metadata and content.
+  - [x] **S1**: `BuildHandler` reads content of presentations and fragments using `FSUtils`.
+  - [x] **S2**: `BuildHandler` creates an inflated `Presentation` object with all metadata and content.
 
 - [ ] **F7: Core Parser Implementation** - Develop the `Parser` module to transform presentation content into `SlideNodes`.
 
