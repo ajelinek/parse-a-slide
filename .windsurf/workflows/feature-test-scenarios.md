@@ -1,5 +1,4 @@
 ---
-title: Test Scenarios Workflow
 description: Guidelines for creating comprehensive Gherkin test scenarios covering happy paths, error cases, and edge cases to ensure thorough feature testing and quality assurance.
 ---
 
@@ -9,6 +8,8 @@ description: Guidelines for creating comprehensive Gherkin test scenarios coveri
 - Evaluate existing test cases `*.test.ts` files to determine what additional test cases are needed.
 - Create a new section in the feature design called test scenarios.
 - Create test scenarios using Gherkin syntax, being sure to use consistent key words to describe the process and validation needs.
+- Gherkin syntax should be in an markdown codeblock and use proper syntax
+- Use example tables when running the same scenario with different input and expected values.
 - Organize the test scenarios into groups based on Happy Path, Error Path
 - Every module should be tested
 - Group the test cases based on the module they belong to
