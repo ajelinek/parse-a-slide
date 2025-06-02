@@ -186,7 +186,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
 
 ##### Scenario Group: Basic Slide Creation & Navigation
 
-Scenario: Parsing a single slide from an entry fragment
+- [x] Scenario: Parsing a single slide from an entry fragment
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -205,7 +205,7 @@ Scenario: Parsing a single slide from an entry fragment
     | navigation.nextSlideId   | null     |
     | delimiterLevel      | 0        |
 
-Scenario: Parsing multiple top-level sibling slides
+- [x] Scenario: Parsing multiple top-level sibling slides
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -239,7 +239,7 @@ Scenario: Parsing multiple top-level sibling slides
 
 ##### Scenario Group: Hierarchical Slide Creation & Navigation
 
-Scenario: Parsing a parent slide with one child
+- [ ] Scenario: Parsing a parent slide with one child
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -265,7 +265,7 @@ Scenario: Parsing a parent slide with one child
     | nextSlideId         | null     | # Parent S1 has no next sibling
   And SlideNode "S1.C1" should have delimiterLevel 1
 
-Scenario: Parsing multi-level child slides
+- [ ] Scenario: Parsing multi-level child slides
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -323,7 +323,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Fragment Embedding
 
-Scenario: Embedding a fragment as a sibling (reference on its own line)
+- [x] Scenario: Embedding a fragment as a sibling (reference on its own line)
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "include.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -345,7 +345,7 @@ Scenario: Embedding a fragment as a sibling (reference on its own line)
   And SlideNode "S1.includeS2" should have parentSlideId null and previousSlideId "S1.includeS1" and nextSlideId "S2" and delimiterLevel 0
   And SlideNode "S2" should have previousSlideId "S1.includeS2"
 
-Scenario: Embedding a fragment as a child (reference on its own line with child delimiter)
+- [x] Scenario: Embedding a fragment as a child (reference on its own line with child delimiter)
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "child.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -367,7 +367,7 @@ Scenario: Embedding a fragment as a child (reference on its own line with child 
   And SlideNode "S1.childS1" should have parentSlideId "S1" and previousSlideId null and nextSlideId "S1.childS2" and delimiterLevel 1
   And SlideNode "S1.childS2" should have parentSlideId "S1" and previousSlideId "S1.childS1" and nextSlideId "S2" and delimiterLevel 0
 
-Scenario: Fragment reference not on its own line is ignored for embedding
+- [x] Scenario: Fragment reference not on its own line is ignored for embedding
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -380,7 +380,7 @@ Scenario: Fragment reference not on its own line is ignored for embedding
 
 ##### Scenario Group: Frontmatter Parsing
 
-Scenario: Fragment-level frontmatter applied to all slides from that fragment
+- [x] Scenario: Fragment-level frontmatter applied to all slides from that fragment
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -408,7 +408,7 @@ Scenario: Fragment-level frontmatter applied to all slides from that fragment
     | theme  | "dark"                |
   And SlideNode "S2" content should be "# Slide 2\nContent for S2."
 
-Scenario: Fragment-level frontmatter applied correctly during embedding
+- [x] Scenario: Fragment-level frontmatter applied correctly during embedding
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "details.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -464,7 +464,7 @@ Scenario: Fragment-level frontmatter applied correctly during embedding
 
 ##### Scenario Group: Entry Point Errors
 
-Scenario: No entry fragment specified in presentation metadata
+- [x] Scenario: No entry fragment specified in presentation metadata
   Given a Presentation with fragments but no "entryId" in metadata
   When the Parser processes the Presentation
   Then the result should be an error
@@ -472,7 +472,7 @@ Scenario: No entry fragment specified in presentation metadata
 
 ##### Scenario Group: Hierarchical Delimiter Sequencing Errors
 
-Scenario: Attempting to create a child slide skipping a delimiter level
+- [x] Scenario: Attempting to create a child slide skipping a delimiter level
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -484,7 +484,7 @@ Scenario: Attempting to create a child slide skipping a delimiter level
   Then the result should be an error
   And the error code should be "PARSER_DELIMITER_SEQUENCE_ERROR"
 
-Scenario: Attempting to create a child slide with non-increasing delimiter level
+- [x] Scenario: Attempting to create a child slide with non-increasing delimiter level
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -500,7 +500,7 @@ Scenario: Attempting to create a child slide with non-increasing delimiter level
 
 ##### Scenario Group: Fragment Embedding Issues
 
-Scenario: Referenced fragment not found in fragment map
+- [x] Scenario: Referenced fragment not found in fragment map
   Given a Presentation with an entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -513,7 +513,7 @@ Scenario: Referenced fragment not found in fragment map
   And a warning should be logged: "Fragment reference './nonexistent.pres.md' not found. Skipping embedding."
   And 1 SlideNode "S1" should be created with content "# Slide 1" (reference line ignored for content)
 
-Scenario: Circular fragment reference detection
+- [x] Scenario: Circular fragment reference detection
   Given a Presentation with Fragment "fragA.pres.md" and Fragment "fragB.pres.md"
   And Fragment "fragA.pres.md" (entry) contains:
     """
@@ -530,7 +530,7 @@ Scenario: Circular fragment reference detection
   And the error code should be "PARSER_CIRCULAR_REFERENCE"
   And the error message should indicate the circular dependency (e.g., "fragA.pres.md -> fragB.pres.md -> fragA.pres.md")
 
-Scenario: Fragment reference with child delimiter violates delimiter sequence rules
+- [ ] Scenario: Fragment reference with child delimiter violates delimiter sequence rules
   Given a Presentation with entry Fragment "index.pres.md" 
   And Fragment "index.pres.md" contains:
     """
