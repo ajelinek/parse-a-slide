@@ -33,33 +33,153 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
 /**
  * Split slide content by delimiters and filter out empty slides
  */
-function splitContentByDelimiters(content: string): string[] {
-  return content
-    .split(/^---$/m)
-    .map(slide => slide.trim())
-    .filter(Boolean) // Remove empty slides
+interface SlideContent {
+  content: string
+  isChild: boolean
+  isDelimiter: boolean
+}
+
+function splitContentByDelimiters(content: string): SlideContent[] {
+  const lines = content.split('\n')
+  const result: SlideContent[] = []
+  let currentContent: string[] = []
+  let isNextChild = false
+
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    
+    if (trimmedLine === '--->') {
+      // If we have content, add it first
+      if (currentContent.length > 0) {
+        result.push({
+          content: currentContent.join('\n'),
+          isChild: isNextChild,
+          isDelimiter: false
+        })
+        currentContent = []
+      }
+      // Mark the next content as a child
+      isNextChild = true
+    } else if (trimmedLine === '---') {
+      // If we have content, add it first
+      if (currentContent.length > 0) {
+        result.push({
+          content: currentContent.join('\n'),
+          isChild: isNextChild,
+          isDelimiter: false
+        })
+        currentContent = []
+      }
+      // Add a delimiter marker
+      result.push({
+        content: '',
+        isChild: false,
+        isDelimiter: true
+      })
+      isNextChild = false
+    } else {
+      // Regular content line
+      currentContent.push(line)
+    }
+  }
+
+  // Add any remaining content
+  if (currentContent.length > 0) {
+    result.push({
+      content: currentContent.join('\n').trim(),
+      isChild: isNextChild,
+      isDelimiter: false
+    })
+  }
+
+  // Filter out empty content (but keep delimiters)
+  return result.filter(slide => slide.isDelimiter || slide.content.trim() !== '')
 }
 
 /**
  * Create slide nodes from content segments
  */
-function createSlideNodes(slideContents: string[], fragment: Fragment, presentationName: string): SlideNode[] {
+function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, presentationName: string): SlideNode[] {
   const slideNodes: SlideNode[] = []
+  const parentStack: { id: string; index: number }[] = []
+  let topLevelSlideCount = 0
+  let previousNode: SlideNode | null = null
 
   for (let i = 0; i < slideContents.length; i++) {
-    const slideId = `S${i + 1}`
-    const navigation = createNavigation(i, slideContents.length)
-
-    const slideNode: SlideNode = {
-      id: slideId,
-      url: `/${presentationName}/${slideId}`,
-      content: slideContents[i],
-      navigation,
-      fragmentId: fragment.id,
-      userDefinedFrontMatter: {}, // Empty object for frontmatter (could be populated by a processor)
+    const current = slideContents[i]
+    
+    // Skip delimiters, we only care about them for their effect on the next slide
+    if (current.isDelimiter) {
+      continue
     }
 
-    slideNodes.push(slideNode)
+    // Create a new slide node
+    const isChild = current.isChild
+    const parent = parentStack[parentStack.length - 1]
+    
+    // Determine slide ID and navigation
+    let slideId: string
+    let navigation: SlideNavigation
+    let delimiterLevel: number
+    
+    if (isChild && parent) {
+      // This is a child slide
+      slideId = `${parent.id}.C${slideNodes.filter(n => n.id.startsWith(parent.id + '.C')).length + 1}`
+      delimiterLevel = 1
+      
+      navigation = {
+        parentSlideId: parent.id,
+        childSlideId: null,
+        previousSlideId: null,
+        nextSlideId: null
+      }
+      
+      // Update parent's child reference
+      const parentNode = slideNodes[parent.index]
+      if (parentNode) {
+        parentNode.navigation.childSlideId = slideId
+      }
+    } else {
+      // This is a top-level slide
+      slideId = `S${++topLevelSlideCount}`
+      delimiterLevel = 0
+      
+      navigation = {
+        parentSlideId: null,
+        childSlideId: null,
+        previousSlideId: previousNode?.id || null,
+        nextSlideId: null
+      }
+      
+      // Update previous node's next reference if it exists and isn't a parent with a child
+      if (previousNode && !previousNode.navigation.childSlideId) {
+        previousNode.navigation.nextSlideId = slideId
+      }
+      
+      // Reset the parent stack for a new top-level slide
+      parentStack.length = 0
+      parentStack.push({ id: slideId, index: slideNodes.length })
+    }
+    
+    // Create the new slide node
+    const newNode: SlideNode = {
+      id: slideId,
+      url: `/${presentationName}/${slideId}`,
+      content: current.content,
+      navigation,
+      fragmentId: fragment.id,
+      userDefinedFrontMatter: {},
+      delimiterLevel
+    }
+    
+    // Add to our list of nodes
+    const nodeIndex = slideNodes.push(newNode) - 1
+    previousNode = newNode
+    
+    // If this is a top-level slide, update the parent stack
+    if (delimiterLevel === 0) {
+      parentStack[0] = { id: slideId, index: nodeIndex }
+    }
   }
 
   return slideNodes
@@ -68,14 +188,8 @@ function createSlideNodes(slideContents: string[], fragment: Fragment, presentat
 /**
  * Create navigation links for a slide based on its position
  */
-function createNavigation(index: number, totalSlides: number): SlideNavigation {
-  return {
-    parentSlideId: null,
-    childSlideId: null,
-    previousSlideId: index > 0 ? `S${index}` : null,
-    nextSlideId: index < totalSlides - 1 ? `S${index + 2}` : null,
-  }
-}
+// Navigation is now created inline in createSlideNodes
+// This function is no longer needed
 
 /**
  * Apply processors to all slide nodes
