@@ -239,7 +239,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
 
 ##### Scenario Group: Hierarchical Slide Creation & Navigation
 
-- [ ] Scenario: Parsing a parent slide with one child
+- [x] Scenario: Parsing a parent slide with one child
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """

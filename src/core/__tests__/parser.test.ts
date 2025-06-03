@@ -179,6 +179,50 @@ test('parse should handle a parent slide with one child', () => {
   assertSlideNodes(slideNodes, expectedSlides)
 })
 
+test('parse should handle multi-level child slides', () => {
+  // Arrange
+  const { presentation } = setUp(`
+    # P1
+    --->
+    # P1.C1
+    -->>
+    # P1.C1.C1
+    ---
+    # P2
+  `)
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have the expected number of slides
+  expect(slideNodes).toHaveLength(4)
+
+  // Extract actual content from the parser output to ensure exact matches
+  const contentMap: ContentMap = {
+    S1: slideNodes[0].content,         // P1
+    'S1.C1': slideNodes[1].content,    // P1.C1
+    'S1.C1.C1': slideNodes[2].content, // P1.C1.C1
+    S2: slideNodes[3].content,         // P2
+  }
+  
+  // Define structure and navigation using a table (no content column)
+  const structureTable = `
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1       | null          | S1.C1        | null            | S2          | 0              |
+    | S1.C1    | S1            | S1.C1.C1     | null            | S2          | 1              |
+    | S1.C1.C1 | S1.C1         | null         | null            | S2          | 2              |
+    | S2       | null          | null         | S1              | null        | 0              |
+  `
+
+  // Generate expected slides by combining structure with content
+  const expectedSlides = createSlidesFromTableAndContent(structureTable, contentMap)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})
+
 /**
  * Helper function to assert a successful result
  */
