@@ -9,7 +9,15 @@ import { createSlidesFromTableAndContent, filterValidRows, ContentMap } from '..
 // Simple test helpers for asserting slide node content and structure
 
 /**
- * Simple assertion for slide nodes that checks existence by ID and exact content matching
+ * Normalizes content by trimming whitespace and ensuring consistent newlines
+ */
+function normalizeContent(content: string): string {
+  return content.trim().replace(/\r\n/g, '\n')
+}
+
+/**
+ * Simple assertion for slide nodes that checks existence by ID and content matching
+ * with normalization for whitespace differences
  */
 function assertSlideNodes(actual: SlideNode[], expected: Partial<SlideNode>[]) {
   // Filter out invalid nodes
@@ -24,9 +32,11 @@ function assertSlideNodes(actual: SlideNode[], expected: Partial<SlideNode>[]) {
     expect(matchingNode, `No slide with ID ${expectedNode.id} was found`).toBeDefined()
     if (!matchingNode) return
 
-    // Assert content matches exactly
+    // Assert content matches after normalization
     if (expectedNode.content) {
-      expect(matchingNode.content).toBe(expectedNode.content)
+      const normalizedActual = normalizeContent(matchingNode.content)
+      const normalizedExpected = normalizeContent(expectedNode.content)
+      expect(normalizedActual).toBe(normalizedExpected)
     }
 
     // Verify navigation properties as a complete object
@@ -81,19 +91,22 @@ function setUp(slideContent: string): {
 }
 
 test('parse should handle a single slide from an entry fragment', () => {
-  // Arrange
-  const { presentation } = setUp(`
+  // Define raw slide content for input
+  const rawSlide1Content = `
     # Slide 1
     Content for Slide 1.
-  `)
+  `
+
+  // Arrange
+  const { presentation } = setUp(rawSlide1Content)
 
   // Act
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Create a content map with exact slide content
+  // Create a content map with normalized content for expected output
   const contentMap: ContentMap = {
-    S1: slideNodes[0].content, // Use actual content from the parser output
+    S1: '# Slide 1\nContent for Slide 1.',
   }
 
   // Define structure and navigation using a table (no content column)
@@ -111,23 +124,35 @@ test('parse should handle a single slide from an entry fragment', () => {
 })
 
 test('parse should handle multiple top-level sibling slides', () => {
+  // Define raw slide content for input
+  const rawSlide1Content = `
+    # Slide 1
+  `
+  const rawSlide2Content = `
+    # Slide 2
+  `
+  const rawSlide3Content = `
+    # Slide 3
+  `
+
   // Arrange
   const { presentation } = setUp(`
-    # Slide 1
+    ${rawSlide1Content}
     ---
-    # Slide 2
+    ${rawSlide2Content}
     ---
-    # Slide 3
+    ${rawSlide3Content}
   `)
+
   // Act
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Extract actual content from the parser output to ensure exact matches
+  // Create a content map with normalized content for expected output
   const contentMap: ContentMap = {
-    S1: slideNodes[0].content,
-    S2: slideNodes[1].content,
-    S3: slideNodes[2].content,
+    S1: '# Slide 1\n',
+    S2: '# Slide 2\n',
+    S3: '# Slide 3\n',
   }
 
   // Define structure and navigation using a table (no content column)
@@ -147,21 +172,27 @@ test('parse should handle multiple top-level sibling slides', () => {
 })
 
 test('parse should handle a parent slide with one child', () => {
-  // Arrange
-  const { presentation } = setUp(`
+  // Define raw slide content for input
+  const rawParentContent = `
     # Parent P1
-    --->
+  `
+  const rawChildContent = `
     # Child C1
+  `
+
+  // Arrange
+  const { presentation } = setUp(`${rawParentContent}
+    --->${rawChildContent}
   `)
 
   // Act
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Extract actual content from the parser output to ensure exact matches
+  // Create a content map with normalized content for expected output
   const contentMap: ContentMap = {
-    S1: slideNodes[0].content,
-    'S1.C1': slideNodes[1].content,
+    S1: '# Parent P1\n',
+    'S1.C1': '# Child C1\n',
   }
 
   // Define structure and navigation using a table (no content column)
@@ -180,15 +211,25 @@ test('parse should handle a parent slide with one child', () => {
 })
 
 test('parse should handle multi-level child slides', () => {
-  // Arrange
-  const { presentation } = setUp(`
+  // Define raw slide content for input
+  const rawP1Content = `
     # P1
-    --->
+  `
+  const rawP1c1Content = `
     # P1.C1
-    -->>
+  `
+  const rawP1c1c1Content = `
     # P1.C1.C1
-    ---
+  `
+  const rawP2Content = `
     # P2
+  `
+
+  // Arrange
+  const { presentation } = setUp(`${rawP1Content}
+    --->${rawP1c1Content}
+    -->>${rawP1c1c1Content}
+    ---${rawP2Content}
   `)
 
   // Act
@@ -198,14 +239,14 @@ test('parse should handle multi-level child slides', () => {
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(4)
 
-  // Extract actual content from the parser output to ensure exact matches
+  // Create a content map with normalized content for expected output
   const contentMap: ContentMap = {
-    S1: slideNodes[0].content,         // P1
-    'S1.C1': slideNodes[1].content,    // P1.C1
-    'S1.C1.C1': slideNodes[2].content, // P1.C1.C1
-    S2: slideNodes[3].content,         // P2
+    S1: '# P1\n',
+    'S1.C1': '# P1.C1\n',
+    'S1.C1.C1': '# P1.C1.C1\n',
+    S2: '# P2\n',
   }
-  
+
   // Define structure and navigation using a table (no content column)
   const structureTable = `
     | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
