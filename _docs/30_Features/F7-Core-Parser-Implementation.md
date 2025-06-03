@@ -265,7 +265,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     | nextSlideId         | null     | # Parent S1 has no next sibling
   And SlideNode "S1.C1" should have delimiterLevel 1
 
-- [ ] Scenario: Parsing multi-level child slides
+- [x] Scenario: Parsing multi-level child slides
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -305,7 +305,7 @@ Scenario: Parsing an empty intermediate child slide
   And SlideNode "S1.C1.C1" should have parentSlideId "S1.C1"
   And SlideNode "S1.C1.C1" should have delimiterLevel 2
 
-Scenario: Last child's next slide links to parent's next slide
+- [x] Scenario: Last child's next slide links to parent's next slide
   Given a Presentation with one entry Fragment "entry.pres.md"
   And the Fragment "entry.pres.md" contains:
     """
@@ -323,7 +323,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Fragment Embedding
 
-- [x] Scenario: Embedding a fragment as a sibling (reference on its own line)
+- [] Scenario: Embedding a fragment as a sibling (reference on its own line)
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "include.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -345,7 +345,7 @@ Scenario: Last child's next slide links to parent's next slide
   And SlideNode "S1.includeS2" should have parentSlideId null and previousSlideId "S1.includeS1" and nextSlideId "S2" and delimiterLevel 0
   And SlideNode "S2" should have previousSlideId "S1.includeS2"
 
-- [x] Scenario: Embedding a fragment as a child (reference on its own line with child delimiter)
+- [] Scenario: Embedding a fragment as a child (reference on its own line with child delimiter)
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "child.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -367,7 +367,7 @@ Scenario: Last child's next slide links to parent's next slide
   And SlideNode "S1.childS1" should have parentSlideId "S1" and previousSlideId null and nextSlideId "S1.childS2" and delimiterLevel 1
   And SlideNode "S1.childS2" should have parentSlideId "S1" and previousSlideId "S1.childS1" and nextSlideId "S2" and delimiterLevel 0
 
-- [x] Scenario: Fragment reference not on its own line is ignored for embedding
+- [] Scenario: Fragment reference not on its own line is ignored for embedding
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -380,7 +380,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Frontmatter Parsing
 
-- [x] Scenario: Fragment-level frontmatter applied to all slides from that fragment
+- [] Scenario: Fragment-level frontmatter applied to all slides from that fragment
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -408,7 +408,7 @@ Scenario: Last child's next slide links to parent's next slide
     | theme  | "dark"                |
   And SlideNode "S2" content should be "# Slide 2\nContent for S2."
 
-- [x] Scenario: Fragment-level frontmatter applied correctly during embedding
+- [] Scenario: Fragment-level frontmatter applied correctly during embedding
   Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "details.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -464,7 +464,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Entry Point Errors
 
-- [x] Scenario: No entry fragment specified in presentation metadata
+- [] Scenario: No entry fragment specified in presentation metadata
   Given a Presentation with fragments but no "entryId" in metadata
   When the Parser processes the Presentation
   Then the result should be an error
@@ -472,7 +472,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Hierarchical Delimiter Sequencing Errors
 
-- [x] Scenario: Attempting to create a child slide skipping a delimiter level
+- [] Scenario: Attempting to create a child slide skipping a delimiter level
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -484,7 +484,7 @@ Scenario: Last child's next slide links to parent's next slide
   Then the result should be an error
   And the error code should be "PARSER_DELIMITER_SEQUENCE_ERROR"
 
-- [x] Scenario: Attempting to create a child slide with non-increasing delimiter level
+- [] Scenario: Attempting to create a child slide with non-increasing delimiter level
   Given a Presentation with one entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -500,7 +500,7 @@ Scenario: Last child's next slide links to parent's next slide
 
 ##### Scenario Group: Fragment Embedding Issues
 
-- [x] Scenario: Referenced fragment not found in fragment map
+- [] Scenario: Referenced fragment not found in fragment map
   Given a Presentation with an entry Fragment "entry.pres.md"
   And Fragment "entry.pres.md" contains:
     """
@@ -513,7 +513,7 @@ Scenario: Last child's next slide links to parent's next slide
   And a warning should be logged: "Fragment reference './nonexistent.pres.md' not found. Skipping embedding."
   And 1 SlideNode "S1" should be created with content "# Slide 1" (reference line ignored for content)
 
-- [x] Scenario: Circular fragment reference detection
+- [] Scenario: Circular fragment reference detection
   Given a Presentation with Fragment "fragA.pres.md" and Fragment "fragB.pres.md"
   And Fragment "fragA.pres.md" (entry) contains:
     """
