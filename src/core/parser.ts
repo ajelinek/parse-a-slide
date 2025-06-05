@@ -135,9 +135,21 @@ function processFragmentEmbedding(
       prefixId
     )
     
+    // Store the next slide ID for later navigation links
+    // This helps us correctly link the end of embedded fragment to the next main slide
+    let nextSlideId: string | null = null
+    if (insertionPoint < allSlideNodes.length) {
+      nextSlideId = allSlideNodes[insertionPoint].id
+    }
+    
     // Insert the embedded nodes at the right position
     allSlideNodes.splice(insertionPoint, 0, ...embeddedNodes)
     fragmentInfo.count = embeddedNodes.length
+    
+    // If there's a next slide, make sure the last embedded slide links to it
+    if (nextSlideId && embeddedNodes.length > 0) {
+      embeddedNodes[embeddedNodes.length - 1].navigation.nextSlideId = nextSlideId
+    }
     
     // Update insertion points for any later fragments
     for (let j = i + 1; j < embeddedFragmentIndices.length; j++) {
@@ -150,19 +162,27 @@ function processFragmentEmbedding(
   
   // Explicitly set navigation links as required by the test case
   if (allSlideNodes.length > 0) {
-    // Set all previousSlideId and nextSlideId links (except for last slide)
+    // First pass: Set basic previous/next navigation between consecutive slides
+    // We need to be careful here as embedded fragments might already have specific navigation
     for (let i = 0; i < allSlideNodes.length - 1; i++) {
       const current = allSlideNodes[i]
       const next = allSlideNodes[i + 1]
       
-      current.navigation.nextSlideId = next.id
+      // For previous links, we always want to link back
       next.navigation.previousSlideId = current.id
+      
+      // For next links, only set them if not already set by embedded fragment processing
+      // This ensures that fragment boundary navigations take precedence
+      if (current.navigation.nextSlideId === null || 
+          // Only override if it's pointing to a slide from the same fragment
+          (current.navigation.nextSlideId && 
+           current.fragmentId === allSlideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId)) {
+        current.navigation.nextSlideId = next.id
+      }
     }
     
     // Ensure last slide has no nextSlideId
-    if (allSlideNodes.length > 0) {
-      allSlideNodes[allSlideNodes.length - 1].navigation.nextSlideId = null
-    }
+    allSlideNodes[allSlideNodes.length - 1].navigation.nextSlideId = null
   }
   
   return allSlideNodes

@@ -3,8 +3,6 @@
  *
  * These utilities help parse markdown tables into JavaScript objects for use in tests.
  */
-import { expect } from 'vitest'
-import { SlideNode, SlideNavigation } from '../types/slide'
 
 /**
  * Parses a markdown table into an array of objects
@@ -116,91 +114,7 @@ export function filterValidRows<T extends Record<string, any>>(rows: T[], idFiel
   return rows.filter(row => row && row[idField] && row[idField] !== 'null')
 }
 
-// assertSlideNodes function has been moved back to parser.test.ts
-
-/**
- * Interface for slide table rows without content field
- */
-export interface SlideTableRow extends Record<string, string> {
-  id: string
-  parentSlideId: string
-  childSlideId: string
-  previousSlideId: string
-  nextSlideId: string
-  delimiterLevel: string
-}
-
 /**
  * Map of slide content by ID
  */
 export type ContentMap = Record<string, string>
-
-/**
- * Creates slide nodes by combining a table of structure/navigation with a separate content map
- * @param markdownTable Table with slide structure and navigation (without content)
- * @param contentMap Map of slide content by ID
- * @param presentationName The presentation name to use for URLs
- * @returns An array of partial SlideNode objects
- */
-export function createSlidesFromTableAndContent(
-  markdownTable: string,
-  contentMap: ContentMap,
-  presentationName = 'presentation1'
-): Partial<SlideNode>[] {
-  // Parse the markdown table into rows of data
-  const rows = parseMarkdownTable<SlideTableRow>(markdownTable)
-
-  // Convert rows to SlideNode objects with proper type safety
-  return rows.map((row: SlideTableRow) => {
-    // Get content from map or use empty string if not found
-    const content = contentMap[row.id] || ''
-
-    // Ensure all navigation properties are explicitly null (not undefined) when missing
-    const navigation: SlideNavigation = {
-      parentSlideId: toNullable(row.parentSlideId || 'null'),
-      childSlideId: toNullable(row.childSlideId || 'null'),
-      previousSlideId: toNullable(row.previousSlideId || 'null'),
-      nextSlideId: toNullable(row.nextSlideId || 'null'),
-    }
-
-    return {
-      id: row.id,
-      url: `/${presentationName}/${row.id}`,
-      content: trimContent(content),
-      navigation,
-      fragmentId: expect.any(String) as string,
-      userDefinedFrontMatter: {},
-      delimiterLevel: parseInt(row.delimiterLevel, 10),
-    }
-  })
-}
-
-/**
- * Legacy function: Converts a markdown table string to an array of SlideNode objects
- * @deprecated Use createSlidesFromTableAndContent instead for better handling of content with special characters
- */
-export function slidesFromMarkdownTable(
-  markdownTable: string,
-  presentationName = 'presentation1'
-): Partial<SlideNode>[] {
-  // Parse the markdown table into rows of data
-  const rows = parseMarkdownTable<Record<string, string> & { id: string; content: string }>(markdownTable)
-
-  // Convert rows to SlideNode objects with proper type safety
-  return rows.map(row => {
-    return {
-      id: row.id,
-      url: `/${presentationName}/${row.id}`,
-      content: row.content.replace(/\\n/g, '\n'), // Unescape newlines
-      navigation: {
-        parentSlideId: toNullable(row.parentSlideId || 'null'),
-        childSlideId: toNullable(row.childSlideId || 'null'),
-        previousSlideId: toNullable(row.previousSlideId || 'null'),
-        nextSlideId: toNullable(row.nextSlideId || 'null'),
-      },
-      fragmentId: expect.any(String) as string,
-      userDefinedFrontMatter: {},
-      delimiterLevel: parseInt(row.delimiterLevel || '0', 10),
-    }
-  })
-}
