@@ -24,15 +24,6 @@ interface FragmentReference {
 }
 
 /**
- * Interface for embedded fragment information
- */
-interface EmbeddedFragmentInfo {
-  startIndex: number
-  count: number
-  path: string
-}
-
-/**
  * Parse a presentation into a list of slide nodes.
  * @param presentation The presentation to parse
  * @param processors Optional array of processors to apply to each slide node
@@ -72,197 +63,75 @@ function parseFragmentContent(
   presentationName: string,
   processedFragments: Set<string> = new Set()
 ): SlideNode[] {
-  // Split the content into slide sections
   const slideContents = splitContentByDelimiters(fragment.content)
-
-  // Process the content with fragment embedding if needed
   const visitedFragments = new Set(processedFragments)
 
-  // Track fragment references for embedding
-  const embeddedFragmentInfos: EmbeddedFragmentInfo[] = []
-
-  // Create initial slide nodes without handling fragment references yet
   let slideNodes: SlideNode[] = []
   const buffer: SlideContent[] = []
+  let globalTopLevelCount = 0
 
   const flushBuffer = () => {
     if (buffer.length > 0) {
-      slideNodes.push(...createSlideNodes(buffer.splice(0, buffer.length), fragment, presentationName))
+      const newNodes = createSlideNodes(
+        buffer.splice(0, buffer.length),
+        fragment,
+        presentationName,
+        globalTopLevelCount
+      )
+      globalTopLevelCount += newNodes.filter(n => n.delimiterLevel === 0).length
+      slideNodes.push(...newNodes)
     }
   }
 
-  // First pass - process regular slides and track fragment references
-  for (let i = 0; i < slideContents.length; i++) {
-    const section = slideContents[i]
+  for (const section of slideContents) {
     const content = section.content.trim()
-
-    // Check if this section is a standalone fragment reference
     const fragmentRef = extractFragmentReference(content)
 
     if (fragmentRef && content === fragmentRef.fullMatch) {
-      // Flush any buffered regular content before handling the reference
       flushBuffer()
 
       const referencedPath = resolveReferencedFragmentPath(fragmentRef.path, fragment.relativePath)
-      if (fragmentMap.has(referencedPath)) {
-        embeddedFragmentInfos.push({
-          startIndex: slideNodes.length,
-          count: 0,
-          path: referencedPath,
-        })
-      } else {
-        console.warn(`Referenced fragment not found: ${referencedPath}. Skipping.`)
+      if (fragmentMap.has(referencedPath) && !visitedFragments.has(referencedPath)) {
+        visitedFragments.add(referencedPath)
+        const referencedFragment = fragmentMap.get(referencedPath)!
+        const embeddedNodes = parseFragmentContent(referencedFragment, fragmentMap, presentationName, visitedFragments)
+
+        // Rename embedded nodes with special fragment IDs
+        const lastSlideId = slideNodes.length > 0 ? slideNodes[slideNodes.length - 1].id : 'S0'
+        for (let i = 0; i < embeddedNodes.length; i++) {
+          const node = embeddedNodes[i]
+          const newId = `${lastSlideId}FS${i + 1}`
+          node.id = newId
+          node.url = `/${presentationName}/${newId}`
+          // Update fragment ID to match the entry fragment for proper navigation
+          node.fragmentId = fragment.id
+        }
+
+        slideNodes.push(...embeddedNodes)
+        visitedFragments.delete(referencedPath)
       }
     } else {
       buffer.push(section)
     }
   }
 
-  // Flush any remaining buffered content after loop
   flushBuffer()
-
-  // Second pass - process and insert fragments at recorded positions
-  slideNodes = processEmbeddedFragments(
-    slideNodes,
-    embeddedFragmentInfos,
-    fragment,
-    fragmentMap,
-    presentationName,
-    visitedFragments
-  )
-
-  // Finalize navigation links between slides
   connectNavigationLinks(slideNodes)
-
   return slideNodes
-}
-
-/**
- * Process embedded fragments and insert them into the slide nodes array
- */
-function processEmbeddedFragments(
-  slideNodes: SlideNode[],
-  embeddedFragmentInfos: EmbeddedFragmentInfo[],
-  currentFragment: Fragment,
-  fragmentMap: Map<string, Fragment>,
-  presentationName: string,
-  visitedFragments: Set<string>
-): SlideNode[] {
-  // No fragments to embed
-  if (embeddedFragmentInfos.length === 0) {
-    return slideNodes
-  }
-
-  for (let i = 0; i < embeddedFragmentInfos.length; i++) {
-    const fragmentInfo = embeddedFragmentInfos[i]
-    const referencedPath = fragmentInfo.path
-    const insertionPoint = fragmentInfo.startIndex
-
-    // Skip circular references
-    if (visitedFragments.has(referencedPath)) {
-      console.warn(`Circular reference detected: ${referencedPath}. Skipping.`)
-      continue
-    }
-
-    // Mark as visited to prevent circular references
-    visitedFragments.add(referencedPath)
-
-    // Get the referenced fragment
-    const referencedFragment = fragmentMap.get(referencedPath)!
-
-    // Split and process the referenced fragment
-    const embeddedSections = splitContentByDelimiters(referencedFragment.content)
-
-    // Get the ID to use as prefix for embedded slides
-    const prefixId = insertionPoint > 0 ? slideNodes[insertionPoint - 1].id : 'S1'
-
-    // Create nodes for the embedded fragment with special IDs
-    const embeddedNodes = createEmbeddedSlideNodes(embeddedSections, referencedFragment, presentationName, prefixId)
-
-    // Store the next slide ID for later navigation links
-    let nextSlideId: string | null = null
-    if (insertionPoint < slideNodes.length) {
-      nextSlideId = slideNodes[insertionPoint].id
-    }
-
-    // Insert the embedded nodes at the right position
-    slideNodes.splice(insertionPoint, 0, ...embeddedNodes)
-    fragmentInfo.count = embeddedNodes.length
-
-    // If there's a next slide, make sure the last embedded slide links to it
-    if (nextSlideId && embeddedNodes.length > 0) {
-      embeddedNodes[embeddedNodes.length - 1].navigation.nextSlideId = nextSlideId
-    }
-
-    // Update insertion points for any later fragments
-    for (let j = i + 1; j < embeddedFragmentInfos.length; j++) {
-      embeddedFragmentInfos[j].startIndex += embeddedNodes.length
-    }
-
-    // Update slide IDs for slides after the embedded fragment
-    updateSlideIdsAfterEmbedding(slideNodes, insertionPoint, embeddedNodes.length, presentationName)
-
-    // Remove from visited set after processing
-    visitedFragments.delete(referencedPath)
-  }
-
-  return slideNodes
-}
-
-/**
- * Update slide IDs after embedding fragments
- */
-function updateSlideIdsAfterEmbedding(
-  slideNodes: SlideNode[],
-  insertionPoint: number,
-  embeddedCount: number,
-  presentationName: string
-): void {
-  // Update the ID of any remaining slides after the last embedded fragment
-  for (let j = insertionPoint + embeddedCount; j < slideNodes.length; j++) {
-    const node = slideNodes[j]
-    if (node.id.startsWith('S')) {
-      // This is a top-level slide, set the ID to be sequential
-      // For the fragment embedding test, we need the fourth slide to be S2
-      const newId = `S2`
-
-      // Update references to this slide's old ID
-      const oldId = node.id
-      updateSlideReferences(slideNodes, oldId, newId)
-
-      // Update the node's ID and URL
-      node.id = newId
-      node.url = `/${presentationName}/${newId}`
-    }
-  }
-}
-
-/**
- * Update references to a slide ID throughout all slides
- */
-function updateSlideReferences(slideNodes: SlideNode[], oldId: string, newId: string): void {
-  for (const node of slideNodes) {
-    if (node.navigation.nextSlideId === oldId) {
-      node.navigation.nextSlideId = newId
-    }
-    if (node.navigation.previousSlideId === oldId) {
-      node.navigation.previousSlideId = newId
-    }
-    if (node.navigation.parentSlideId === oldId) {
-      node.navigation.parentSlideId = newId
-    }
-    if (node.navigation.childSlideId === oldId) {
-      node.navigation.childSlideId = newId
-    }
-  }
 }
 
 /**
  * Connect navigation links between slides
  */
 function connectNavigationLinks(slideNodes: SlideNode[]): void {
-  if (slideNodes.length === 0) {
-    return
+  // Set parent-child navigation first
+  for (const node of slideNodes) {
+    if (node.navigation.parentSlideId) {
+      const parentNode = slideNodes.find(n => n.id === node.navigation.parentSlideId)
+      if (parentNode && !parentNode.navigation.childSlideId) {
+        parentNode.navigation.childSlideId = node.id
+      }
+    }
   }
 
   // First pass: Set basic previous/next navigation between consecutive slides
@@ -270,59 +139,81 @@ function connectNavigationLinks(slideNodes: SlideNode[]): void {
     const current = slideNodes[i]
     const next = slideNodes[i + 1]
 
-    // Only set previous link for top-level slides (no parent)
-    if (current.navigation.parentSlideId === null && next.navigation.parentSlideId === null) {
-      next.navigation.previousSlideId = current.id
+    // Set previous link for top-level slides
+    if (next.navigation.parentSlideId === null) {
+      // Find the previous top-level slide
+      for (let j = i; j >= 0; j--) {
+        const candidate = slideNodes[j]
+        if (candidate.navigation.parentSlideId === null) {
+          next.navigation.previousSlideId = candidate.id
+          break
+        }
+      }
     }
 
     // For next links, only set them if not already set by embedded fragment processing
     if (
       // Skip if slide has children; its logical next is dictated by tree, not linear order
       current.navigation.childSlideId === null &&
-      (current.navigation.nextSlideId === null ||
-        // Only override if it's pointing to a slide from the same fragment
-        (current.navigation.nextSlideId &&
-          current.fragmentId === slideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId))
+      // Skip embedded slides - they already have correct navigation from fragment processing
+      !current.id.includes('FS') &&
+      current.navigation.nextSlideId === null
     ) {
       current.navigation.nextSlideId = next.id
     }
   }
 
-  // Ensure last slide has no nextSlideId
-  slideNodes[slideNodes.length - 1].navigation.nextSlideId = null
-}
-
-/**
- * Create slide nodes for embedded fragment content with proper IDs
- */
-function createEmbeddedSlideNodes(
-  slideContents: SlideContent[],
-  fragment: Fragment,
-  presentationName: string,
-  previousSlideId: string | null
-): SlideNode[] {
-  // Basic slide creation
-  const nodes = createSlideNodes(slideContents, fragment, presentationName)
-
-  // Update IDs to include parent reference
-  if (nodes.length > 0) {
-    const prefix = previousSlideId || 'S0'
-
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i]
-      const newId = `${prefix}FS${i + 1}`
-
-      // Update ID and URL
-      node.id = newId
-      node.url = `/${presentationName}/${newId}`
-
-      // Reset navigation links (they'll be set again later)
-      node.navigation.previousSlideId = null
-      node.navigation.nextSlideId = null
+  // Second pass: Set child slides to link to parent's next slide
+  for (const node of slideNodes) {
+    if (node.navigation.parentSlideId && !node.navigation.childSlideId) {
+      const rootParent = findRootParent(node, slideNodes)
+      if (rootParent && rootParent.navigation.nextSlideId) {
+        node.navigation.nextSlideId = rootParent.navigation.nextSlideId
+      }
     }
   }
 
-  return nodes
+  // Third pass: Handle parent slides with children - they should link to next top-level slide
+  const topLevelSlides = slideNodes.filter(n => !n.navigation.parentSlideId)
+  for (let i = 0; i < topLevelSlides.length - 1; i++) {
+    const current = topLevelSlides[i]
+    const next = topLevelSlides[i + 1]
+
+    if (current.navigation.childSlideId) {
+      current.navigation.nextSlideId = next.id
+    }
+  }
+
+  // Fourth pass: Handle non-child slides with children (like S1C1 with S1C1C1)
+  for (const node of slideNodes) {
+    if (node.navigation.parentSlideId && node.navigation.childSlideId) {
+      const rootParent = findRootParent(node, slideNodes)
+      if (rootParent && rootParent.navigation.nextSlideId) {
+        node.navigation.nextSlideId = rootParent.navigation.nextSlideId
+      }
+    }
+  }
+
+  // Final pass: Restore correct navigation for embedded slides
+  for (let i = 0; i < slideNodes.length; i++) {
+    const current = slideNodes[i]
+    if (current.id.includes('FS')) {
+      const next = i < slideNodes.length - 1 ? slideNodes[i + 1] : null
+      if (next) {
+        current.navigation.nextSlideId = next.id
+      }
+    }
+  }
+}
+
+function findRootParent(node: SlideNode, slideNodes: SlideNode[]): SlideNode | null {
+  let current = node
+  while (current.navigation.parentSlideId) {
+    const parent = slideNodes.find(n => n.id === current.navigation.parentSlideId)
+    if (!parent) break
+    current = parent
+  }
+  return current === node ? null : current
 }
 
 /**
@@ -333,15 +224,8 @@ function splitContentByDelimiters(content: string): SlideContent[] {
   const result: SlideContent[] = []
   let currentContent: string[] = []
   let nextChildLevel = 0
-
-  // Track if the last thing we saw was a sibling delimiter (---)
   let lastWasSiblingDelimiter = false
 
-  /**
-   * Push the current buffered lines as a slide.
-   * Handles the edge-case where consecutive delimiters should create
-   * an empty slide node between them.
-   */
   const flushCurrentContent = () => {
     if (currentContent.length > 0) {
       result.push({
@@ -351,8 +235,6 @@ function splitContentByDelimiters(content: string): SlideContent[] {
       })
       currentContent = []
     } else if (lastWasSiblingDelimiter) {
-      // Consecutive delimiters with no content between them should still
-      // yield an empty slide so that navigation remains consistent.
       result.push({
         content: '',
         childLevel: nextChildLevel,
@@ -364,29 +246,23 @@ function splitContentByDelimiters(content: string): SlideContent[] {
   for (const line of lines) {
     const trimmedLine = line.trim()
 
-    // Delimiter handling
     if (trimmedLine === '---' || trimmedLine === '--->' || trimmedLine === '-->>') {
-      // First, flush any content collected so far (or create empty slide if needed)
       flushCurrentContent()
 
-      // Update tracking flags / levels based on delimiter type
       if (trimmedLine === '---') {
         lastWasSiblingDelimiter = true
         nextChildLevel = 0
       } else {
-        // Child delimiter variants reset sibling tracking
         lastWasSiblingDelimiter = false
         nextChildLevel = trimmedLine === '--->' ? 1 : 2
       }
       continue
     }
 
-    // Regular content line
     lastWasSiblingDelimiter = false
     currentContent.push(line)
   }
 
-  // Flush any trailing content (trimmed like the original implementation)
   if (currentContent.length > 0) {
     result.push({
       content: currentContent.join('\n').trim(),
@@ -395,152 +271,81 @@ function splitContentByDelimiters(content: string): SlideContent[] {
     })
   }
 
-  // Filter out empty slides unless they are child slides or explicitly created between delimiters
   return result.filter(slide => !slide.isDelimiter)
 }
 
 /**
  * Create slide nodes from content segments
  */
-function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, presentationName: string): SlideNode[] {
+function createSlideNodes(
+  slideContents: SlideContent[],
+  fragment: Fragment,
+  presentationName: string,
+  startingTopLevelCount: number = 0
+): SlideNode[] {
   const slideNodes: SlideNode[] = []
-  const parentStack: { id: string; index: number; level: number }[] = []
-  let topLevelSlideCount = 0
-  let previousNode: SlideNode | null = null
-  // Track top-level slides separately for navigation
-  const topLevelSlides: { id: string; index: number }[] = []
+  let topLevelCount = startingTopLevelCount
+  const parentStack: { id: string; level: number }[] = []
 
-  // Helper to generate navigation for a new top-level slide
-  const buildTopLevelNavigation = (): SlideNavigation => ({
-    parentSlideId: null,
-    childSlideId: null,
-    previousSlideId: previousNode?.id || null,
-    nextSlideId: null,
-  })
-
-  // Process each slide content
-  for (let i = 0; i < slideContents.length; i++) {
-    const current = slideContents[i]
-    const childLevel = current.childLevel
-
-    // Determine parent (if any) based on child level
-    const parent = childLevel > 0 ? findParentForChildLevel(parentStack, childLevel) : null
-
+  for (const content of slideContents) {
+    const isTopLevel = content.childLevel === 0
     let slideId: string
-    let navigation: SlideNavigation
-    let delimiterLevel = childLevel
-    let isTopLevel = false
+    let parentSlideId: string | null = null
 
-    if (parent) {
-      // Child slide
-      slideId = `${parent.id}C${slideNodes.filter(n => n.id.startsWith(parent.id + 'C')).length + 1}`
-      navigation = {
-        parentSlideId: parent.id,
+    if (isTopLevel) {
+      slideId = `S${++topLevelCount}`
+      parentStack.length = 0
+    } else {
+      const parent = findParent(parentStack, content.childLevel)
+      if (parent) {
+        const childCount = slideNodes.filter(n => n.id.startsWith(parent.id + 'C')).length + 1
+        slideId = `${parent.id}C${childCount}`
+        parentSlideId = parent.id
+      } else {
+        slideId = `S${++topLevelCount}`
+      }
+
+      while (parentStack.length && parentStack[parentStack.length - 1].level >= content.childLevel) {
+        parentStack.pop()
+      }
+    }
+
+    const slideNode: SlideNode = {
+      id: slideId,
+      url: `/${presentationName}/${slideId}`,
+      content: content.content,
+      navigation: {
+        parentSlideId,
         childSlideId: null,
         previousSlideId: null,
         nextSlideId: null,
-      }
+      },
+      fragmentId: fragment.id,
+      userDefinedFrontMatter: {},
+      delimiterLevel: content.childLevel,
+    }
 
-      // Link parent -> first child
-      const parentNode = slideNodes[parent.index]
+    slideNodes.push(slideNode)
+    parentStack.push({ id: slideId, level: content.childLevel })
+
+    if (parentSlideId) {
+      const parentNode = slideNodes.find(n => n.id === parentSlideId)
       if (parentNode && !parentNode.navigation.childSlideId) {
         parentNode.navigation.childSlideId = slideId
       }
-
-      // Trim parentStack levels deeper/equal to this level then push new parent ref later
-      while (parentStack.length && parentStack[parentStack.length - 1].level >= childLevel) {
-        parentStack.pop()
-      }
-    } else {
-      // Treat as a new top-level slide
-      slideId = `S${++topLevelSlideCount}`
-      delimiterLevel = 0
-      isTopLevel = true
-      navigation = buildTopLevelNavigation()
-
-      // Reset parent context
-      parentStack.length = 0
-    }
-
-    // Create the slide node
-    const newNode: SlideNode = {
-      id: slideId,
-      url: `/${presentationName}/${slideId}`,
-      content: current.content,
-      navigation,
-      fragmentId: fragment.id,
-      userDefinedFrontMatter: {},
-      delimiterLevel,
-    }
-
-    // Add to list and update state
-    const nodeIndex = slideNodes.push(newNode) - 1
-    previousNode = newNode
-    parentStack.push({ id: slideId, index: nodeIndex, level: childLevel })
-
-    // Handle top-level specific navigation linking
-    if (isTopLevel) {
-      if (topLevelSlides.length > 0) {
-        const prevTop = slideNodes[topLevelSlides[topLevelSlides.length - 1].index]
-        prevTop.navigation.nextSlideId = slideId
-        navigation.previousSlideId = prevTop.id
-      }
-      topLevelSlides.push({ id: slideId, index: nodeIndex })
-    }
-
-    // Pre-link child slides to the upcoming top-level slide placeholder
-    if (childLevel > 0 && i < slideContents.length - 1) {
-      for (let j = i + 1; j < slideContents.length; j++) {
-        if (slideContents[j].childLevel === 0) {
-          newNode.navigation.nextSlideId = `S${topLevelSlideCount + 1}`
-          break
-        }
-      }
     }
   }
-
-  // Post-processing to connect child slides to their parent's next slide
-  connectChildSlidesToParentNextSlide(slideNodes)
 
   return slideNodes
 }
 
-/**
- * Find the appropriate parent for a child slide based on its level
- */
-function findParentForChildLevel(
-  parentStack: { id: string; index: number; level: number }[],
-  childLevel: number
-): { id: string; index: number; level: number } | null {
-  // Look for the closest parent with a lower level
-  for (let j = parentStack.length - 1; j >= 0; j--) {
-    if (parentStack[j].level < childLevel) {
-      return parentStack[j]
+function findParent(parentStack: { id: string; level: number }[], childLevel: number) {
+  for (let i = parentStack.length - 1; i >= 0; i--) {
+    if (parentStack[i].level < childLevel) {
+      return parentStack[i]
     }
   }
   return null
-}
-
-/**
- * Connect child slides to their parent's next slide
- */
-function connectChildSlidesToParentNextSlide(slideNodes: SlideNode[]): void {
-  for (let i = 0; i < slideNodes.length; i++) {
-    const node = slideNodes[i]
-
-    // If this is a child slide (has a parent)
-    if (node.navigation.parentSlideId) {
-      const parentNode = slideNodes.find(n => n.id === node.navigation.parentSlideId)
-
-      // If parent exists and has a next slide, ensure this child links to that next slide too
-      if (parentNode && parentNode.navigation.nextSlideId) {
-        // Only set nextSlideId if this is a leaf node (has no children)
-        if (node.navigation.childSlideId === null) {
-          node.navigation.nextSlideId = parentNode.navigation.nextSlideId
-        }
-      }
-    }
-  }
 }
 
 /**
