@@ -42,16 +42,24 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
     fragmentMap.set(fragment.relativePath, fragment)
   }
 
-  // Parse the presentation via a single unified flow that supports embedded fragments
-  const slideNodes = parseFragmentContent(entryFragment, fragmentMap, presentation.metadata.name)
+  try {
+    // Parse the presentation via a single unified flow that supports embedded fragments
+    const slideNodes = parseFragmentContent(entryFragment, fragmentMap, presentation.metadata.name)
 
-  // Apply processors to all slide nodes
-  const processedNodes = applyProcessors(slideNodes, processors)
-  if (processedNodes.isErr()) {
-    return processedNodes
+    // Apply processors to all slide nodes
+    const processedNodes = applyProcessors(slideNodes, processors)
+    if (processedNodes.isErr()) {
+      return processedNodes
+    }
+
+    return ok(processedNodes.value)
+  } catch (error) {
+    // Handle parser errors (like delimiter sequence errors)
+    if (error instanceof Error && 'code' in error) {
+      return err(error as AppError)
+    }
+    return err(createError(error instanceof Error ? error.message : String(error), ErrorCode.PARSER_ERROR))
   }
-
-  return ok(processedNodes.value)
 }
 
 /**
@@ -91,6 +99,7 @@ function parseFragmentContent(
       flushBuffer()
 
       const referencedPath = resolveReferencedFragmentPath(fragmentRef.path, fragment.relativePath)
+
       if (fragmentMap.has(referencedPath) && !visitedFragments.has(referencedPath)) {
         visitedFragments.add(referencedPath)
         const referencedFragment = fragmentMap.get(referencedPath)!
@@ -124,6 +133,14 @@ function parseFragmentContent(
 
         slideNodes.push(...embeddedNodes)
         visitedFragments.delete(referencedPath)
+      } else if (!fragmentMap.has(referencedPath)) {
+        // Fragment not found - log warning and continue
+        console.warn(`Fragment reference '${fragmentRef.path}' not found. Skipping.`)
+        // Also add buffer to handle this case
+        buffer.push(section)
+      } else if (visitedFragments.has(referencedPath)) {
+        // Circular reference detected
+        throw createError('Circular reference detected', ErrorCode.PARSER_CIRCULAR_REFERENCE)
       }
     } else {
       buffer.push(section)
@@ -250,6 +267,7 @@ function splitContentByDelimiters(content: string): SlideContent[] {
   const result: SlideContent[] = []
   let currentContent: string[] = []
   let nextChildLevel = 0
+  let currentMaxLevel = 0
   let lastWasSiblingDelimiter = false
 
   const flushCurrentContent = () => {
@@ -278,9 +296,18 @@ function splitContentByDelimiters(content: string): SlideContent[] {
       if (trimmedLine === '---') {
         lastWasSiblingDelimiter = true
         nextChildLevel = 0
+        currentMaxLevel = Math.max(currentMaxLevel, 0)
       } else {
         lastWasSiblingDelimiter = false
-        nextChildLevel = trimmedLine === '--->' ? 1 : 2
+        const newLevel = trimmedLine === '--->' ? 1 : 2
+
+        // Validate that we're not skipping levels
+        if (newLevel > currentMaxLevel + 1) {
+          throw createError('Invalid nesting increase: cannot skip levels', ErrorCode.PARSER_DELIMITER_SEQUENCE_ERROR)
+        }
+
+        nextChildLevel = newLevel
+        currentMaxLevel = Math.max(currentMaxLevel, newLevel)
       }
       continue
     }

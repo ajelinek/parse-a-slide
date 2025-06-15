@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { Fragment, Presentation } from '../../types/presentation'
 import { parse } from '../parser'
 import {
@@ -284,4 +284,106 @@ test('parse should handle last childs next slide linking to parents next slide',
 
   // Assert that parser output matches our expectations
   assertSlideNodes(slideNodes, expectedSlides)
+})
+
+// Error Path Tests
+test('parse should return error when no entry fragment is specified', () => {
+  // Create a presentation with fragments but no entry fragment (isEntry = false for all)
+  const fragment1 = createFragment(
+    '# Fragment 1',
+    'fragment1',
+    'fragment1.pres.md',
+    false // Not an entry fragment
+  )
+
+  const fragment2 = createFragment(
+    '# Fragment 2',
+    'fragment2',
+    'fragment2.pres.md',
+    false // Not an entry fragment
+  )
+
+  const presentation = createPresentation([fragment1, fragment2])
+
+  // Act
+  const result = parse(presentation)
+
+  // Assert
+  expect(result.isErr()).toBe(true)
+  if (result.isErr()) {
+    expect(result.error.code).toBe('NO_ENTRY_FRAGMENT')
+    expect(result.error.message).toContain('No entry fragment found')
+  }
+})
+
+test('parse should return error when attempting to skip a delimiter level', () => {
+  // Arrange
+  const { presentation } = setUp(`
+    # Parent P1 (level 0)
+    -->>
+    # Child C1 (attempted level 2)
+  `)
+
+  // Act
+  const result = parse(presentation)
+
+  // Assert
+  expect(result.isErr()).toBe(true)
+  if (result.isErr()) {
+    expect(result.error.code).toBe('PARSER_DELIMITER_SEQUENCE_ERROR')
+    expect(result.error.message).toContain('Invalid nesting increase')
+  }
+})
+
+test('parse should handle referenced fragment not found with warning', () => {
+  // Mock console.warn to capture the warning message
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+  // Arrange
+  const { presentation } = setUp(`
+    # Slide 1
+    ---
+    [Link To Missing](./nonexistent.pres.md)
+  `)
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Assert - Two slides are created: one for "# Slide 1" and one for the missing fragment reference
+  expect(slideNodes).toHaveLength(2)
+  expect(slideNodes[0].id).toBe('S1')
+  expect(slideNodes[0].content).toContain('# Slide 1')
+  expect(slideNodes[1].id).toBe('S2')
+  expect(slideNodes[1].content).toContain('[Link To Missing](./nonexistent.pres.md)')
+
+  // Verify warning was logged
+  expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Fragment reference './nonexistent.pres.md' not found"))
+
+  // Cleanup
+  warnSpy.mockRestore()
+})
+
+test('parse should return error for circular fragment reference', () => {
+  // Create fragments that reference each other
+  const fragA = createFragment(
+    '[Link to B](./fragB.pres.md)',
+    'fragA',
+    'fragA.pres.md',
+    true // Entry fragment
+  )
+
+  const fragB = createFragment('[Link to A](./fragA.pres.md)', 'fragB', 'fragB.pres.md', false)
+
+  const presentation = createPresentation([fragA, fragB])
+
+  // Act
+  const result = parse(presentation)
+
+  // Assert
+  expect(result.isErr()).toBe(true)
+  if (result.isErr()) {
+    expect(result.error.code).toBe('PARSER_CIRCULAR_REFERENCE')
+    expect(result.error.message).toContain('Circular reference detected')
+  }
 })

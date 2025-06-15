@@ -466,14 +466,14 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
 
 ##### Scenario Group: Entry Point Errors
 
--   [ ] Scenario: No entry fragment specified
+-   [x] Scenario: No entry fragment specified
     Given a Presentation with fragments but no "entryId" in metadata
     When the Parser processes the Presentation
     Then the result should be an error with code "NO_ENTRY_FRAGMENT"
 
 ##### Scenario Group: Hierarchical Delimiter Sequencing Errors
 
--   [ ] Scenario: Attempting to skip a delimiter level
+-   [x] Scenario: Attempting to skip a delimiter level
     Given a Presentation with one entry Fragment "entry.pres.md"
     And Fragment "entry.pres.md" contains:
     """
@@ -486,7 +486,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
 
 ##### Scenario Group: Fragment Embedding Issues
 
--   [ ] Scenario: Referenced fragment not found
+-   [x] Scenario: Referenced fragment not found
     Given a Presentation with an entry Fragment "entry.pres.md"
     And Fragment "entry.pres.md" contains:
     """
@@ -499,7 +499,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     And a warning should be logged: "Fragment reference './nonexistent.pres.md' not found. Skipping."
     And only 1 SlideNode "S1" should be created
 
--   [ ] Scenario: Circular fragment reference
+-   [x] Scenario: Circular fragment reference
     Given a Presentation with Fragment "fragA.pres.md" and "fragB.pres.md"
     And Fragment "fragA.pres.md" (entry) contains "[Link to B](./fragB.pres.md)"
     And Fragment "fragB.pres.md" contains "[Link to A](./fragA.pres.md)"
