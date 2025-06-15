@@ -93,3 +93,71 @@ test('parse should handle embedding a fragment as a sibling (reference on its ow
   // Assert that parser output matches our expectations
   assertSlideNodes(slideNodes, expectedSlides)
 })
+
+test('parse should handle embedding a fragment as a child', () => {
+  // Define raw slide content for input fragments
+  const slideContent = {
+    S1: `
+    # Parent Slide P1
+    `,
+    'S1.C1': `
+    # Child Content C1
+    `,
+    'S1.C2': `
+    # Child Content C2
+    `,
+    S2: `
+    # Sibling Slide S2
+    `,
+  }
+
+  const entryFragment = {
+    content: `
+      # Parent Slide P1
+      --->
+      [Go To Child](./child.pres.md)
+      ---
+      # Sibling Slide S2
+    `,
+    isEntry: true,
+    relativePath: 'entry.pres.md',
+    id: 'entry-fragment',
+  }
+
+  const childFragment = {
+    content: `
+      # Child Content C1
+      ---
+      # Child Content C2
+    `,
+    isEntry: false,
+    relativePath: 'child.pres.md',
+    id: 'child-fragment',
+  }
+
+  // Arrange
+  const presentation = setUp({
+    fragment1: entryFragment,
+    fragment2: childFragment,
+  })
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id     | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | ------ | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1     | null          | S1.C1        | null            | S2          | 0              |
+    | S1.C1  | S1            | null         | null            | S1.C2       | 1              |
+    | S1.C2  | S1            | null         | S1.C1           | S2          | 1              |
+    | S2     | null          | null         | S1              | null        | 0              |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData(slideContent, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})

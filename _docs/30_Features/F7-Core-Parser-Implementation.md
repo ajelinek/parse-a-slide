@@ -426,7 +426,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     And SlideNode "S1FS2" should have parentSlideId null and previousSlideId "S1FS1" and nextSlideId "S2"
     And SlideNode "S2" should have previousSlideId "S1FS2"
 
--   [ ] Scenario: Embedding a fragment as a child
+-   [x] Scenario: Embedding a fragment as a child
     Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "child.pres.md"
     And Fragment "entry.pres.md" contains:
     """
