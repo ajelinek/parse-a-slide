@@ -322,6 +322,13 @@ function splitContentByDelimiters(content: string): SlideContent[] {
       childLevel: nextChildLevel,
       isDelimiter: false,
     })
+  } else if (lastWasSiblingDelimiter) {
+    // Handle case where presentation ends with a delimiter - create empty slide
+    result.push({
+      content: '',
+      childLevel: nextChildLevel,
+      isDelimiter: false,
+    })
   }
 
   return result.filter(slide => !slide.isDelimiter)

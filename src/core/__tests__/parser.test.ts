@@ -387,3 +387,139 @@ test('parse should return error for circular fragment reference', () => {
     expect(result.error.message).toContain('Circular reference detected')
   }
 })
+
+test('parse should handle navigating correctly after "popping" up multiple nesting levels', () => {
+  // Define raw slide content for input
+  const S1 = `
+    # L0-S1 (S1)
+  `
+  const S1C1 = `
+    # L1-C1 (S1.C1)
+  `
+  const S1C1C1 = `
+    # L2-C1 (S1.C1.C1)
+  `
+  const S2 = `
+    # L0-S2 (S2)
+  `
+  const S2C1 = `
+    # L1-C1 (S2.C1)
+  `
+
+  // Arrange
+  const { presentation } = setUp(`
+    ${S1}
+    --->
+    ${S1C1}
+    -->>
+    ${S1C1C1}
+    ---
+    ${S2}
+    --->
+    ${S2C1}
+  `)
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have the expected number of slides
+  expect(slideNodes).toHaveLength(5)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1       | null          | S1C1         | null            | S2          | 0              |
+    | S1C1     | S1            | S1C1C1       | null            | S2          | 1              |
+    | S1C1C1   | S1C1          | null         | null            | S2          | 2              |
+    | S2       | null          | S2C1         | S1              | null        | 0              |
+    | S2C1     | S2            | null         | null            | null        | 1              |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData({ S1, S1C1, S1C1C1, S2, S2C1 }, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})
+
+test('parse should handle delimiters with surrounding whitespace correctly', () => {
+  // Define raw slide content for input
+  const S1 = `
+    # S1
+  `
+  const S2 = `
+    # S2
+  `
+
+  // Arrange - Note the whitespace around the delimiter
+  const { presentation } = setUp(`
+    ${S1}
+
+       ---   
+
+    ${S2}
+  `)
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have the expected number of slides
+  expect(slideNodes).toHaveLength(2)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1 | null          | null         | null            | S2          | 0              |
+    | S2 | null          | null         | S1              | null        | 0              |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData({ S1, S2 }, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})
+
+test('parse should handle a presentation ending with a delimiter creating an empty slide', () => {
+  // Define raw slide content for input
+  const S1 = `
+    # Slide 1
+  `
+
+  // Arrange - Note the presentation ends with a delimiter
+  const { presentation } = setUp(`
+    ${S1}
+    ---
+  `)
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have the expected number of slides
+  expect(slideNodes).toHaveLength(2)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1 | null          | null         | null            | S2          | 0              |
+    | S2 | null          | null         | S1              | null        | 0              |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData(
+    {
+      S1,
+      S2: '', // Empty content for S2
+    },
+    structureTable
+  )
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})

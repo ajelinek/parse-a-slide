@@ -337,15 +337,15 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     """
     When the Parser processes the Presentation
     Then the result should be successful
-    And 2 SlideNodes should be created with IDs "S1", "S1.C1"
+    And 2 SlideNodes should be created with IDs "S1", "S1C1"
     And SlideNode "S1" should have navigation:
     | property        | value   |
     | --------------- | ------- |
     | parentSlideId   | null    |
-    | childSlideId    | "S1.C1" |
+    | childSlideId    | "S1C1" |
     | previousSlideId | null    |
     | nextSlideId     | null    |
-    And SlideNode "S1.C1" should have navigation:
+    And SlideNode "S1C1" should have navigation:
     | property        | value |
     | --------------- | ----- |
     | parentSlideId   | "S1"  |
@@ -367,10 +367,10 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     """
     When the Parser processes the Presentation
     Then the result should be successful
-    And 4 SlideNodes should be created with IDs "S1", "S1.C1", "S1.C1.C1", "S2"
-    And SlideNode "S1" should have childSlideId "S1.C1" and nextSlideId "S2"
-    And SlideNode "S1.C1" should have parentSlideId "S1", childSlideId "S1.C1.C1", and nextSlideId "S2"
-    And SlideNode "S1.C1.C1" should have parentSlideId "S1.C1", childSlideId null, and nextSlideId "S2"
+    And 4 SlideNodes should be created with IDs "S1", "S1C1", "S1C1C1", "S2"
+    And SlideNode "S1" should have childSlideId "S1C1" and nextSlideId "S2"
+    And SlideNode "S1C1" should have parentSlideId "S1", childSlideId "S1C1C1", and nextSlideId "S2"
+    And SlideNode "S1C1C1" should have parentSlideId "S1C1", childSlideId null, and nextSlideId "S2"
     And SlideNode "S2" should have parentSlideId null, childSlideId null, and previousSlideId "S1"
 
 -   [x] Scenario: Parsing an empty intermediate child slide
@@ -400,7 +400,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     """
     When the Parser processes the Presentation
     Then the result should be successful
-    And SlideNode "S1.C1" should have nextSlideId "S2"
+    And SlideNode "S1C1" should have nextSlideId "S2"
 
 ##### Scenario Group: Fragment Embedding
 
@@ -444,10 +444,10 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     """
     When the Parser processes the Presentation
     Then the result should be successful
-    And 4 SlideNodes should be created: "S1" (P1), "S1.C1" (C1), "S1.C2" (C2), "S2" (S2)
-    And SlideNode "S1" should have childSlideId "S1.C1" and nextSlideId "S2"
-    And SlideNode "S1.C1" should have parentSlideId "S1" and nextSlideId "S1.C2"
-    And SlideNode "S1.C2" should have parentSlideId "S1" and previousSlideId "S1.C1" and nextSlideId "S2"
+    And 4 SlideNodes should be created: "S1" (P1), "S1C1" (C1), "S1C2" (C2), "S2" (S2)
+    And SlideNode "S1" should have childSlideId "S1C1" and nextSlideId "S2"
+    And SlideNode "S1C1" should have parentSlideId "S1" and nextSlideId "S1C2"
+    And SlideNode "S1C2" should have parentSlideId "S1" and previousSlideId "S1C1" and nextSlideId "S2"
     And SlideNode "S2" should have previousSlideId "S1"
 
 -   [x] Scenario: Fragment reference not on its own line is ignored
@@ -461,6 +461,114 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     Then the result should be successful
     And 1 SlideNode "S1" should be created
     And its content should contain the full line "Some text [Details](./ignored.pres.md) and more text."
+
+##### Scenario Group: Complex Hierarchy & Navigation Finalization
+
+-   [ ] Scenario: Navigating correctly after "popping" up multiple nesting levels
+    Given a Presentation with the following content in "entry.pres.md":
+    """
+    # L0-S1 (S1)
+    --->
+    # L1-C1 (S1.C1)
+    -->>
+    # L2-C1 (S1.C1.C1)
+    ---
+    # L0-S2 (S2)
+    --->
+    # L1-C1 (S2.C1)
+    """
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 5 SlideNodes should be created: "S1", "S1C1", "S1C1C1", "S2", "S2C1"
+    And SlideNode "S1C1C1" should have navigation nextSlideId "S2"
+    And SlideNode "S1C1" should have navigation nextSlideId "S2"
+    And SlideNode "S2" should have navigation previousSlideId "S1"
+
+##### Scenario Group: Advanced Fragment Embedding
+
+-   [] Scenario: Embedding an empty fragment
+    Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "empty.pres.md"
+    And Fragment "entry.pres.md" contains:
+    """
+    # Slide 1
+    ---
+    [link](./empty.pres.md)
+    ---
+    # Slide 2
+    """
+    And Fragment "empty.pres.md" is empty
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 2 SlideNodes should be created: "S1" and "S2"
+    And SlideNode "S1" should have navigation nextSlideId "S2"
+
+-   [] Scenario: Embedding a fragment that only contains delimiters
+    Given a Presentation with an entry Fragment "entry.pres.md" and another Fragment "delimiters.pres.md"
+    And Fragment "entry.pres.md" contains:
+    """
+    # Parent
+    --->
+    [link](./delimiters.pres.md)
+    """
+    And Fragment "delimiters.pres.md" contains "---"
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 3 SlideNodes should be created: "S1" (Parent), "S1C1" (empty child), "S1C2" (empty sibling from fragment)
+    And SlideNode "S1C1" should have content ""
+    And SlideNode "S1C2" should have content ""
+    And SlideNode "S1C1" should have parentSlideId "S1"
+    And SlideNode "S1C2" should have parentSlideId "S1"
+    And SlideNode "S1C1" should have nextSlideId "S1C2"
+
+-   [] Scenario: A deeply nested fragment correctly inherits its base nesting level
+    Given a Presentation with fragments "entry.pres.md" and "embed.pres.md"
+    And Fragment "entry.pres.md" contains:
+    """
+    # P1
+    --->
+    # C1
+    -->>
+    [embed](./embed.pres.md)
+    """
+    And Fragment "embed.pres.md" contains:
+    """
+    # E1
+    --->
+    # E1.C1
+    """
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 5 SlideNodes should be created: "S1" (P1), "S1C1" (C1), "S1C1C1" (empty), "S1C1C1C1" (E1), and "S1C1C1C1C1" (E1C1)
+    And the SlideNode for "E1" should have a parentSlideId pointing to the "empty" slide
+    And the empty slide should have a parentSlideId pointing to "S1C1"
+
+##### Scenario Group: Delimiter and Content Edge Cases
+
+-   [] Scenario: Delimiters with surrounding whitespace are handled correctly
+    Given a Presentation with content:
+    """
+    # S1
+
+       ---   
+
+    # S2
+    """
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 2 SlideNodes should be created, "S1" and "S2"
+    And SlideNode "S1" should have navigation nextSlideId "S2"
+
+-   [] Scenario: A presentation ends with a delimiter creating an empty slide
+    Given a Presentation with content:
+    """
+    # Slide 1
+    ---
+    """
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And 2 SlideNodes should be created: "S1" and "S2"
+    And SlideNode "S2" should have content ""
+    And SlideNode "S1" should have navigation nextSlideId "S2"
 
 #### 2.4.2. Parser Module - Error Path & Warnings
 
@@ -505,4 +613,105 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     And Fragment "fragB.pres.md" contains "[Link to A](./fragA.pres.md)"
     When the Parser processes the Presentation
     Then the result should be an error with code "PARSER_CIRCULAR_REFERENCE"
+
+-   [ ] Scenario: Comprehensive nested fragment embedding with complex hierarchies
+    Given a Presentation with fragments "entry.pres.md", "section1.pres.md", "section2.pres.md", "subsection.pres.md", and "details.pres.md"
+    And Fragment "entry.pres.md" contains:
+    """
+    # Main Title
+    ---
+    # Introduction
+    --->
+    # Intro Child 1
+    -->>
+    # Intro Grandchild
+    ---
+    # Overview
+    [Section 1](./section1.pres.md)
+    ---
+    # Transition
+    [Section 2](./section2.pres.md)
+    ---
+    # Conclusion
+    """
+    And Fragment "section1.pres.md" contains:
+    """
+    # Section 1 Title
+    ---
+    # Section 1 Content A
+    --->
+    # Section 1 Child A1
+    [Subsection Details](./subsection.pres.md)
+    ---
+    # Section 1 Content B
+    --->
+    # Section 1 Child B1
+    -->>
+    # Section 1 Grandchild B1
+    ---
+    # Section 1 Child B2
+    """
+    And Fragment "section2.pres.md" contains:
+    """
+    # Section 2 Title
+    --->
+    # Section 2 Child A
+    -->>
+    # Section 2 Grandchild A
+    [Details](./details.pres.md)
+    ---
+    # Section 2 Child B
+    ---
+    # Section 2 Sibling
+    """
+    And Fragment "subsection.pres.md" contains:
+    """
+    # Subsection Main
+    ---
+    # Subsection Detail 1
+    --->
+    # Subsection Child 1
+    ---
+    # Subsection Detail 2
+    """
+    And Fragment "details.pres.md" contains:
+    """
+    # Detail A
+    ---
+    # Detail B
+    --->
+    # Detail B Child
+    """
+    When the Parser processes the Presentation
+    Then the result should be successful
+    And the following SlideNodes should be created with the structure:
+    | id                        | parentSlideId             | childSlideId              | previousSlideId           | nextSlideId               | delimiterLevel |
+    | ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- | -------------- |
+    | S1                        | null                      | null                      | null                      | S2                        | 0              |
+    | S2                        | null                      | S2C1                      | S1                        | S3                        | 0              |
+    | S2C1                      | S2                        | S2C1C1                    | null                      | S3                        | 1              |
+    | S2C1C1                    | S2C1                      | null                      | null                      | S3                        | 2              |
+    | S3                        | null                      | null                      | S2                        | S3FS1                     | 0              |
+    | S3FS1                     | null                      | null                      | S3                        | S3FS2                     | 0              |
+    | S3FS2                     | null                      | S3FS2C1                   | S3FS1                     | S3FS3                     | 0              |
+    | S3FS2C1                   | S3FS2                     | null                      | null                      | S3FS2C1FS1                | 1              |
+    | S3FS2C1FS1                | null                      | null                      | S3FS2C1                   | S3FS2C1FS2                | 0              |
+    | S3FS2C1FS2                | null                      | S3FS2C1FS2C1              | S3FS2C1FS1                | S3FS2C1FS3                | 0              |
+    | S3FS2C1FS2C1              | S3FS2C1FS2                | null                      | null                      | S3FS2C1FS3                | 1              |
+    | S3FS2C1FS3                | null                      | null                      | S3FS2C1FS2                | S3FS3                     | 0              |
+    | S3FS3                     | null                      | S3FS3C1                   | S3FS2                     | S4                        | 0              |
+    | S3FS3C1                   | S3FS3                     | S3FS3C1C1                 | null                      | S3FS3C2                   | 1              |
+    | S3FS3C1C1                 | S3FS3C1                   | null                      | null                      | S3FS3C2                   | 2              |
+    | S3FS3C2                   | S3FS3                     | null                      | S3FS3C1                   | S4                        | 1              |
+    | S4                        | null                      | null                      | S3FS3                     | S4FS1                     | 0              |
+    | S4FS1                     | null                      | S4FS1C1                   | S4                        | S4FS2                     | 0              |
+    | S4FS1C1                   | S4FS1                     | S4FS1C1C1                 | null                      | S4FS1C2                   | 1              |
+    | S4FS1C1C1                 | S4FS1C1                   | null                      | null                      | S4FS1C1C1FS1              | 2              |
+    | S4FS1C1C1FS1              | null                      | null                      | S4FS1C1C1                 | S4FS1C1C1FS2              | 0              |
+    | S4FS1C1C1FS2              | null                      | S4FS1C1C1FS2C1            | S4FS1C1C1FS1              | S4FS1C1C1FS3              | 0              |
+    | S4FS1C1C1FS2C1            | S4FS1C1C1FS2              | null                      | null                      | S4FS1C1C1FS3              | 1              |
+    | S4FS1C1C1FS3              | null                      | null                      | S4FS1C1C1FS2              | S4FS1C2                   | 0              |
+    | S4FS1C2                   | S4FS1                     | null                      | S4FS1C1                   | S4FS2                     | 1              |
+    | S4FS2                     | null                      | null                      | S4FS1                     | S5                        | 0              |
+    | S5                        | null                      | null                      | S4FS2                     | null                      | 0              |
 
