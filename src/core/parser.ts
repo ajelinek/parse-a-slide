@@ -51,19 +51,8 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
     fragmentMap.set(fragment.relativePath, fragment)
   }
 
-  // Check for standalone fragment references (ones on their own line/section)
-  const hasStandaloneFragmentRef = hasStandaloneFragmentReference(entryFragment.content)
-
-  // Parse the slides based on the content structure
-  let slideNodes: SlideNode[]
-  if (hasStandaloneFragmentRef) {
-    // If there's a standalone fragment reference, use the fragment embedding process
-    slideNodes = parseFragmentContent(entryFragment, fragmentMap, presentation.metadata.name)
-  } else {
-    // For standard cases, use the original flow
-    const slideContents = splitContentByDelimiters(entryFragment.content)
-    slideNodes = createSlideNodes(slideContents, entryFragment, presentation.metadata.name)
-  }
+  // Parse the presentation via a single unified flow that supports embedded fragments
+  const slideNodes = parseFragmentContent(entryFragment, fragmentMap, presentation.metadata.name)
 
   // Apply processors to all slide nodes
   const processedNodes = applyProcessors(slideNodes, processors)
@@ -72,14 +61,6 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
   }
 
   return ok(processedNodes.value)
-}
-
-/**
- * Check if content has standalone fragment references
- */
-function hasStandaloneFragmentReference(content: string): boolean {
-  // Test for patterns like "[ref](file.pres.md)" or "[ref](file.pres.mdx)" with no other content around it
-  return /^\s*\[.*?\]\([^)]+\.pres\.(md|mdx)\)\s*$/m.test(content)
 }
 
 /**
@@ -102,6 +83,13 @@ function parseFragmentContent(
 
   // Create initial slide nodes without handling fragment references yet
   let slideNodes: SlideNode[] = []
+  const buffer: SlideContent[] = []
+
+  const flushBuffer = () => {
+    if (buffer.length > 0) {
+      slideNodes.push(...createSlideNodes(buffer.splice(0, buffer.length), fragment, presentationName))
+    }
+  }
 
   // First pass - process regular slides and track fragment references
   for (let i = 0; i < slideContents.length; i++) {
@@ -112,24 +100,26 @@ function parseFragmentContent(
     const fragmentRef = extractFragmentReference(content)
 
     if (fragmentRef && content === fragmentRef.fullMatch) {
-      // This section is just a fragment reference - note it for later processing
+      // Flush any buffered regular content before handling the reference
+      flushBuffer()
+
       const referencedPath = resolveReferencedFragmentPath(fragmentRef.path, fragment.relativePath)
       if (fragmentMap.has(referencedPath)) {
-        // Get the referenced fragment and note the insertion point
         embeddedFragmentInfos.push({
           startIndex: slideNodes.length,
-          count: 0, // Will be updated after processing
+          count: 0,
           path: referencedPath,
         })
       } else {
         console.warn(`Referenced fragment not found: ${referencedPath}. Skipping.`)
       }
     } else {
-      // Regular slide section - create a normal slide node
-      const nodes = createSlideNodes([section], fragment, presentationName)
-      slideNodes.push(...nodes)
+      buffer.push(section)
     }
   }
+
+  // Flush any remaining buffered content after loop
+  flushBuffer()
 
   // Second pass - process and insert fragments at recorded positions
   slideNodes = processEmbeddedFragments(
@@ -280,15 +270,19 @@ function connectNavigationLinks(slideNodes: SlideNode[]): void {
     const current = slideNodes[i]
     const next = slideNodes[i + 1]
 
-    // For previous links, we always want to link back
-    next.navigation.previousSlideId = current.id
+    // Only set previous link for top-level slides (no parent)
+    if (current.navigation.parentSlideId === null && next.navigation.parentSlideId === null) {
+      next.navigation.previousSlideId = current.id
+    }
 
     // For next links, only set them if not already set by embedded fragment processing
     if (
-      current.navigation.nextSlideId === null ||
-      // Only override if it's pointing to a slide from the same fragment
-      (current.navigation.nextSlideId &&
-        current.fragmentId === slideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId)
+      // Skip if slide has children; its logical next is dictated by tree, not linear order
+      current.navigation.childSlideId === null &&
+      (current.navigation.nextSlideId === null ||
+        // Only override if it's pointing to a slide from the same fragment
+        (current.navigation.nextSlideId &&
+          current.fragmentId === slideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId))
     ) {
       current.navigation.nextSlideId = next.id
     }
@@ -343,89 +337,56 @@ function splitContentByDelimiters(content: string): SlideContent[] {
   // Track if the last thing we saw was a sibling delimiter (---)
   let lastWasSiblingDelimiter = false
 
-  for (const line of lines) {
-    const trimmedLine = line.trim()
-
-    // Check for different types of delimiters
-    if (trimmedLine === '--->') {
-      // If we have content, add it first
-      if (currentContent.length > 0) {
-        result.push({
-          content: currentContent.join('\n'),
-          childLevel: nextChildLevel,
-          isDelimiter: false,
-        })
-        currentContent = []
-      } else if (lastWasSiblingDelimiter) {
-        // If there's no content between a sibling delimiter and this child delimiter,
-        // add an empty slide to represent the empty content
-        result.push({
-          content: '',
-          childLevel: nextChildLevel,
-          isDelimiter: false,
-        })
-      }
-
-      // Mark that this is not a sibling delimiter
-      lastWasSiblingDelimiter = false
-
-      // Mark the next content as a level 1 child
-      nextChildLevel = 1
-    } else if (trimmedLine === '-->>') {
-      // If we have content, add it first
-      if (currentContent.length > 0) {
-        result.push({
-          content: currentContent.join('\n'),
-          childLevel: nextChildLevel,
-          isDelimiter: false,
-        })
-        currentContent = []
-      } else if (lastWasSiblingDelimiter) {
-        // If there's no content between a sibling delimiter and this grandchild delimiter,
-        // add an empty slide to represent the empty content
-        result.push({
-          content: '',
-          childLevel: nextChildLevel,
-          isDelimiter: false,
-        })
-      }
-
-      // Mark that this is not a sibling delimiter
-      lastWasSiblingDelimiter = false
-
-      // Mark the next content as a level 2 child
-      nextChildLevel = 2
-    } else if (trimmedLine === '---') {
-      // If we have content, add it first
-      if (currentContent.length > 0) {
-        result.push({
-          content: currentContent.join('\n'),
-          childLevel: nextChildLevel,
-          isDelimiter: false,
-        })
-        currentContent = []
-      } else if (lastWasSiblingDelimiter) {
-        // If the previous delimiter was also a sibling delimiter and there's no content in between,
-        // add an empty slide to represent the empty content between consecutive delimiters
-        result.push({
-          content: '',
-          childLevel: 0,
-          isDelimiter: false,
-        })
-      }
-
-      // Mark that we've seen a sibling delimiter
-      lastWasSiblingDelimiter = true
-      nextChildLevel = 0
-    } else {
-      // Regular content line
-      // Non-delimiter content resets the consecutive delimiter tracking
-      lastWasSiblingDelimiter = false
-      currentContent.push(line)
+  /**
+   * Push the current buffered lines as a slide.
+   * Handles the edge-case where consecutive delimiters should create
+   * an empty slide node between them.
+   */
+  const flushCurrentContent = () => {
+    if (currentContent.length > 0) {
+      result.push({
+        content: currentContent.join('\n'),
+        childLevel: nextChildLevel,
+        isDelimiter: false,
+      })
+      currentContent = []
+    } else if (lastWasSiblingDelimiter) {
+      // Consecutive delimiters with no content between them should still
+      // yield an empty slide so that navigation remains consistent.
+      result.push({
+        content: '',
+        childLevel: nextChildLevel,
+        isDelimiter: false,
+      })
     }
   }
 
-  // Add any remaining content
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+
+    // Delimiter handling
+    if (trimmedLine === '---' || trimmedLine === '--->' || trimmedLine === '-->>') {
+      // First, flush any content collected so far (or create empty slide if needed)
+      flushCurrentContent()
+
+      // Update tracking flags / levels based on delimiter type
+      if (trimmedLine === '---') {
+        lastWasSiblingDelimiter = true
+        nextChildLevel = 0
+      } else {
+        // Child delimiter variants reset sibling tracking
+        lastWasSiblingDelimiter = false
+        nextChildLevel = trimmedLine === '--->' ? 1 : 2
+      }
+      continue
+    }
+
+    // Regular content line
+    lastWasSiblingDelimiter = false
+    currentContent.push(line)
+  }
+
+  // Flush any trailing content (trimmed like the original implementation)
   if (currentContent.length > 0) {
     result.push({
       content: currentContent.join('\n').trim(),
@@ -449,76 +410,59 @@ function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, pre
   // Track top-level slides separately for navigation
   const topLevelSlides: { id: string; index: number }[] = []
 
+  // Helper to generate navigation for a new top-level slide
+  const buildTopLevelNavigation = (): SlideNavigation => ({
+    parentSlideId: null,
+    childSlideId: null,
+    previousSlideId: previousNode?.id || null,
+    nextSlideId: null,
+  })
+
   // Process each slide content
   for (let i = 0; i < slideContents.length; i++) {
     const current = slideContents[i]
     const childLevel = current.childLevel
 
-    // Determine slide ID and navigation
+    // Determine parent (if any) based on child level
+    const parent = childLevel > 0 ? findParentForChildLevel(parentStack, childLevel) : null
+
     let slideId: string
     let navigation: SlideNavigation
-    let delimiterLevel: number = childLevel // Set delimiter level based on child level
+    let delimiterLevel = childLevel
     let isTopLevel = false
 
-    if (childLevel > 0) {
-      // Find the appropriate parent based on child level
-      let parent = findParentForChildLevel(parentStack, childLevel)
-
-      if (parent) {
-        // This is a child slide
-        slideId = `${parent.id}C${slideNodes.filter(n => n.id.startsWith(parent.id + 'C')).length + 1}`
-
-        navigation = {
-          parentSlideId: parent.id,
-          childSlideId: null,
-          previousSlideId: null,
-          nextSlideId: null,
-        }
-
-        // Update parent's child reference
-        const parentNode = slideNodes[parent.index]
-        if (parentNode) {
-          parentNode.navigation.childSlideId = slideId
-        }
-
-        // Update the parent stack for this new level
-        // Remove any items at or above this level
-        while (parentStack.length > 0 && parentStack[parentStack.length - 1].level >= childLevel) {
-          parentStack.pop()
-        }
-      } else {
-        // If no appropriate parent found, treat as a top-level slide
-        slideId = `S${++topLevelSlideCount}`
-        delimiterLevel = 0
-        isTopLevel = true
-
-        navigation = {
-          parentSlideId: null,
-          childSlideId: null,
-          previousSlideId: previousNode?.id || null,
-          nextSlideId: null,
-        }
-
-        // Reset the parent stack for a new top-level slide
-        parentStack.length = 0
-      }
-    } else {
-      // This is a top-level slide
-      slideId = `S${++topLevelSlideCount}`
-      isTopLevel = true
-
+    if (parent) {
+      // Child slide
+      slideId = `${parent.id}C${slideNodes.filter(n => n.id.startsWith(parent.id + 'C')).length + 1}`
       navigation = {
-        parentSlideId: null,
+        parentSlideId: parent.id,
         childSlideId: null,
-        previousSlideId: previousNode?.id || null,
+        previousSlideId: null,
         nextSlideId: null,
       }
 
-      // Reset the parent stack for a new top-level slide
+      // Link parent -> first child
+      const parentNode = slideNodes[parent.index]
+      if (parentNode && !parentNode.navigation.childSlideId) {
+        parentNode.navigation.childSlideId = slideId
+      }
+
+      // Trim parentStack levels deeper/equal to this level then push new parent ref later
+      while (parentStack.length && parentStack[parentStack.length - 1].level >= childLevel) {
+        parentStack.pop()
+      }
+    } else {
+      // Treat as a new top-level slide
+      slideId = `S${++topLevelSlideCount}`
+      delimiterLevel = 0
+      isTopLevel = true
+      navigation = buildTopLevelNavigation()
+
+      // Reset parent context
       parentStack.length = 0
     }
 
-    // Create the new slide node
+    // Create the slide node
     const newNode: SlideNode = {
       id: slideId,
       url: `/${presentationName}/${slideId}`,
@@ -529,36 +473,25 @@ function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, pre
       delimiterLevel,
     }
 
-    // Add to our list of nodes
+    // Add to list and update state
     const nodeIndex = slideNodes.push(newNode) - 1
     previousNode = newNode
-
-    // Add this node to the parent stack if it could be a parent
     parentStack.push({ id: slideId, index: nodeIndex, level: childLevel })
 
-    // Track top-level slides for navigation
+    // Handle top-level specific navigation linking
     if (isTopLevel) {
-      // If we have a previous top-level slide, set its next slide ID to this one
-      // and set this slide's previous ID to the previous top-level slide
       if (topLevelSlides.length > 0) {
-        const prevTopLevelIndex = topLevelSlides[topLevelSlides.length - 1].index
-        const prevTopLevelSlide = slideNodes[prevTopLevelIndex]
-
-        // Update navigation links between top-level slides
-        prevTopLevelSlide.navigation.nextSlideId = slideId
-        navigation.previousSlideId = prevTopLevelSlide.id
+        const prevTop = slideNodes[topLevelSlides[topLevelSlides.length - 1].index]
+        prevTop.navigation.nextSlideId = slideId
+        navigation.previousSlideId = prevTop.id
       }
       topLevelSlides.push({ id: slideId, index: nodeIndex })
     }
 
-    // Connect level 1+ slides to the next top-level slide (to be created later)
+    // Pre-link child slides to the upcoming top-level slide placeholder
     if (childLevel > 0 && i < slideContents.length - 1) {
-      // Look ahead for the next top-level slide
       for (let j = i + 1; j < slideContents.length; j++) {
         if (slideContents[j].childLevel === 0) {
-          // Found a top-level slide
-          // We'll set newNode.navigation.nextSlideId once we create that slide
-          // For now, we'll use a placeholder based on the count
           newNode.navigation.nextSlideId = `S${topLevelSlideCount + 1}`
           break
         }
