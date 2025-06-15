@@ -112,7 +112,7 @@ function parseFragmentContent(
 
           for (let i = 0; i < embeddedNodes.length; i++) {
             const node = embeddedNodes[i]
-            const newId = `${parentSlideId}.C${i + 1}`
+            const newId = `${parentSlideId}C${i + 1}`
             node.id = newId
             node.url = `/${presentationName}/${newId}`
             node.navigation.parentSlideId = parentSlideId

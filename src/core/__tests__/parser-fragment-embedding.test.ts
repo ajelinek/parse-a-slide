@@ -261,19 +261,24 @@ test('parse should handle embedding an empty fragment', () => {
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Verify we have the expected number of slides (empty fragment should not create slides)
-  expect(slideNodes).toHaveLength(2)
+  // Verify we have the expected number of slides (empty fragment creates a slide for the reference)
+  expect(slideNodes).toHaveLength(3)
 
   // Define structure and navigation using a table
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | S2          | 0              |
-    | S2 | null          | null         | S1              | null        | 0              |
+    | id    | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | ----- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1    | null          | null         | null            | S1FS1       | 0              |
+    | S1FS1 | null          | null         | S1              | S2          | 0              |
+    | S2    | null          | null         | S1              | null        | 0              |
   `
 
   // Create slideContent object with all slides
-  const slideContent = { S1, S2 }
+  const slideContent = {
+    S1,
+    S1FS1: '', // Empty slide from empty fragment reference
+    S2,
+  }
 
   // Generate test data with content and expected structure
   const { expectedSlides } = createTestData(slideContent, structureTable)
@@ -300,7 +305,10 @@ test('parse should handle embedding a fragment that only contains delimiters', (
   }
 
   const delimitersFragment = {
-    content: '---',
+    content: `
+      ---
+      ---
+    `,
     isEntry: false,
     relativePath: 'delimiters.pres.md',
     id: 'delimiters-fragment',
@@ -350,10 +358,13 @@ test('parse should handle a deeply nested fragment correctly inheriting its base
   const S1C1 = `
     # C1
   `
+  const S1C1C1 = `
+    # C1.C1
+  `
   const S1C1C1C1 = `
     # E1
   `
-  const S1C1C1C1C1 = `
+  const S1C1C1C2 = `
     # E1.C1
   `
 
@@ -372,9 +383,11 @@ test('parse should handle a deeply nested fragment correctly inheriting its base
 
   const embedFragment = {
     content: `
+      ${S1C1C1}
+      --->
       ${S1C1C1C1}
       --->
-      ${S1C1C1C1C1}
+      ${S1C1C1C2}
     `,
     isEntry: false,
     relativePath: 'embed.pres.md',
@@ -396,22 +409,113 @@ test('parse should handle a deeply nested fragment correctly inheriting its base
 
   // Define structure and navigation using a table
   const structureTable = `
-    | id         | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | ---------- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1         | null          | S1C1         | null            | null        | 0              |
-    | S1C1       | S1            | S1C1C1       | null            | null        | 1              |
-    | S1C1C1     | S1C1          | S1C1C1C1     | null            | null        | 2              |
-    | S1C1C1C1   | S1C1C1        | S1C1C1C1C1   | null            | null        | 2              |
-    | S1C1C1C1C1 | S1C1C1C1      | null         | null            | null        | 3              |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1       | null          | S1C1         | null            | null        | 0              |
+    | S1C1     | S1            | S1C1C1       | null            | null        | 1              |
+    | S1C1C1   | S1C1          | S1C1C1C1     | null            | null        | 2              |
+    | S1C1C1C1 | S1C1C1        | null         | null            | S1C1C1C2    | 2              |
+    | S1C1C1C2 | S1C1C1        | null         | S1C1C1C1        | null        | 2              |
   `
 
-  // Create slideContent object with all slides (including empty slide)
+  // Create slideContent object with all slides
   const slideContent = {
     S1,
     S1C1,
-    S1C1C1: '', // Empty slide from -->>
-    S1C1C1C1,
-    S1C1C1C1C1,
+    S1C1C1,
+    S1C1C1C1, // The embedded fragment's first slide
+    S1C1C1C2, // The embedded fragment's second slide
+  }
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData(slideContent, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+})
+
+test('parse should handle a deeply nested fragment with sibling navigation correctly', () => {
+  // Define raw slide content for each individual slide
+  const S1 = `
+    # P1
+  `
+  const S1C1 = `
+    # C1
+  `
+  const S1C1C1 = `
+    # C1.C1
+  `
+  const S1C1C1C1 = `
+    # E1
+  `
+  const S1C1C1C2 = `
+    # E1.C1
+  `
+  const S2 = `
+    # P2
+  `
+
+  const entryFragment = {
+    content: `
+      ${S1}
+      --->
+      ${S1C1}
+      -->>
+      [embed](./embed.pres.md)
+      ---
+      ${S2}
+    `,
+    isEntry: true,
+    relativePath: 'entry.pres.md',
+    id: 'entry-fragment',
+  }
+
+  const embedFragment = {
+    content: `
+      ${S1C1C1}
+      --->
+      ${S1C1C1C1}
+      --->
+      ${S1C1C1C2}
+    `,
+    isEntry: false,
+    relativePath: 'embed.pres.md',
+    id: 'embed-fragment',
+  }
+
+  // Arrange
+  const presentation = setUp({
+    fragment1: entryFragment,
+    fragment2: embedFragment,
+  })
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have the expected number of slides
+  expect(slideNodes).toHaveLength(6)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1       | null          | S1C1         | null            | S2          | 0              |
+    | S1C1     | S1            | S1C1C1       | null            | S2          | 1              |
+    | S1C1C1   | S1C1          | S1C1C1C1     | null            | S2          | 2              |
+    | S1C1C1C1 | S1C1C1        | null         | null            | S1C1C1C2    | 2              |
+    | S1C1C1C2 | S1C1C1        | null         | S1C1C1C1        | S2          | 2              |
+    | S2       | null          | null         | S1              | null        | 0              |
+  `
+
+  // Create slideContent object with all slides
+  const slideContent = {
+    S1,
+    S1C1,
+    S1C1C1,
+    S1C1C1C1, // The embedded fragment's first slide
+    S1C1C1C2, // The embedded fragment's second slide
+    S2,
   }
 
   // Generate test data with content and expected structure
