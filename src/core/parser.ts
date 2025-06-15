@@ -15,6 +15,24 @@ interface SlideContent {
 }
 
 /**
+ * Interface for fragment reference extracted from content
+ */
+interface FragmentReference {
+  fullMatch: string
+  text: string
+  path: string
+}
+
+/**
+ * Interface for embedded fragment information
+ */
+interface EmbeddedFragmentInfo {
+  startIndex: number
+  count: number
+  path: string
+}
+
+/**
  * Parse a presentation into a list of slide nodes.
  * @param presentation The presentation to parse
  * @param processors Optional array of processors to apply to each slide node
@@ -34,19 +52,15 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
   }
 
   // Check for standalone fragment references (ones on their own line/section)
-  // Test for patterns like "[ref](file.pres.md)" or "[ref](file.pres.mdx)" with no other content around it
-  const hasStandaloneFragmentRef = /^\s*\[.*?\]\([^)]+\.pres\.(md|mdx)\)\s*$/m.test(entryFragment.content)
+  const hasStandaloneFragmentRef = hasStandaloneFragmentReference(entryFragment.content)
 
+  // Parse the slides based on the content structure
   let slideNodes: SlideNode[]
-
   if (hasStandaloneFragmentRef) {
     // If there's a standalone fragment reference, use the fragment embedding process
-    // Split the content into slide sections first
-    const initialSlideContents = splitContentByDelimiters(entryFragment.content)
-    // Process each slide section and handle fragment references
-    slideNodes = processFragmentEmbedding(initialSlideContents, entryFragment, presentation.metadata.name, fragmentMap)
+    slideNodes = parseFragmentContent(entryFragment, fragmentMap, presentation.metadata.name)
   } else {
-    // For standard cases, use the original flow for backward compatibility with existing tests
+    // For standard cases, use the original flow
     const slideContents = splitContentByDelimiters(entryFragment.content)
     slideNodes = createSlideNodes(slideContents, entryFragment, presentation.metadata.name)
   }
@@ -61,22 +75,33 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
 }
 
 /**
- * Process a list of slide sections, looking for fragment references and embedding them
+ * Check if content has standalone fragment references
  */
-function processFragmentEmbedding(
-  slideContents: SlideContent[],
+function hasStandaloneFragmentReference(content: string): boolean {
+  // Test for patterns like "[ref](file.pres.md)" or "[ref](file.pres.mdx)" with no other content around it
+  return /^\s*\[.*?\]\([^)]+\.pres\.(md|mdx)\)\s*$/m.test(content)
+}
+
+/**
+ * Parse content from a fragment, handling any embedded fragments
+ */
+function parseFragmentContent(
   fragment: Fragment,
-  presentationName: string,
   fragmentMap: Map<string, Fragment>,
+  presentationName: string,
   processedFragments: Set<string> = new Set()
 ): SlideNode[] {
-  const allSlideNodes: SlideNode[] = []
-  const visitedFragments = processedFragments.size > 0 ? processedFragments : new Set<string>()
-  const embeddedFragmentIndices: { startIndex: number; count: number; path: string }[] = []
+  // Split the content into slide sections
+  const slideContents = splitContentByDelimiters(fragment.content)
 
-  // Track the number of top-level slides for proper ID generation
-  // Start at 0 and increment as we find top-level slides
-  let slideCounter = 0
+  // Process the content with fragment embedding if needed
+  const visitedFragments = new Set(processedFragments)
+
+  // Track fragment references for embedding
+  const embeddedFragmentInfos: EmbeddedFragmentInfo[] = []
+
+  // Create initial slide nodes without handling fragment references yet
+  let slideNodes: SlideNode[] = []
 
   // First pass - process regular slides and track fragment references
   for (let i = 0; i < slideContents.length; i++) {
@@ -91,8 +116,8 @@ function processFragmentEmbedding(
       const referencedPath = resolveReferencedFragmentPath(fragmentRef.path, fragment.relativePath)
       if (fragmentMap.has(referencedPath)) {
         // Get the referenced fragment and note the insertion point
-        embeddedFragmentIndices.push({
-          startIndex: allSlideNodes.length,
+        embeddedFragmentInfos.push({
+          startIndex: slideNodes.length,
           count: 0, // Will be updated after processing
           path: referencedPath,
         })
@@ -102,19 +127,44 @@ function processFragmentEmbedding(
     } else {
       // Regular slide section - create a normal slide node
       const nodes = createSlideNodes([section], fragment, presentationName)
-
-      // Track the slide count for proper ID generation
-      if (nodes.length > 0 && nodes[0].id.startsWith('S')) {
-        slideCounter++
-      }
-
-      allSlideNodes.push(...nodes)
+      slideNodes.push(...nodes)
     }
   }
 
   // Second pass - process and insert fragments at recorded positions
-  for (let i = 0; i < embeddedFragmentIndices.length; i++) {
-    const fragmentInfo = embeddedFragmentIndices[i]
+  slideNodes = processEmbeddedFragments(
+    slideNodes,
+    embeddedFragmentInfos,
+    fragment,
+    fragmentMap,
+    presentationName,
+    visitedFragments
+  )
+
+  // Finalize navigation links between slides
+  connectNavigationLinks(slideNodes)
+
+  return slideNodes
+}
+
+/**
+ * Process embedded fragments and insert them into the slide nodes array
+ */
+function processEmbeddedFragments(
+  slideNodes: SlideNode[],
+  embeddedFragmentInfos: EmbeddedFragmentInfo[],
+  currentFragment: Fragment,
+  fragmentMap: Map<string, Fragment>,
+  presentationName: string,
+  visitedFragments: Set<string>
+): SlideNode[] {
+  // No fragments to embed
+  if (embeddedFragmentInfos.length === 0) {
+    return slideNodes
+  }
+
+  for (let i = 0; i < embeddedFragmentInfos.length; i++) {
+    const fragmentInfo = embeddedFragmentInfos[i]
     const referencedPath = fragmentInfo.path
     const insertionPoint = fragmentInfo.startIndex
 
@@ -134,21 +184,19 @@ function processFragmentEmbedding(
     const embeddedSections = splitContentByDelimiters(referencedFragment.content)
 
     // Get the ID to use as prefix for embedded slides
-    // (previous node's ID, or S1 if this is the first set of nodes)
-    const prefixId = insertionPoint > 0 ? allSlideNodes[insertionPoint - 1].id : 'S1'
+    const prefixId = insertionPoint > 0 ? slideNodes[insertionPoint - 1].id : 'S1'
 
     // Create nodes for the embedded fragment with special IDs
     const embeddedNodes = createEmbeddedSlideNodes(embeddedSections, referencedFragment, presentationName, prefixId)
 
     // Store the next slide ID for later navigation links
-    // This helps us correctly link the end of embedded fragment to the next main slide
     let nextSlideId: string | null = null
-    if (insertionPoint < allSlideNodes.length) {
-      nextSlideId = allSlideNodes[insertionPoint].id
+    if (insertionPoint < slideNodes.length) {
+      nextSlideId = slideNodes[insertionPoint].id
     }
 
     // Insert the embedded nodes at the right position
-    allSlideNodes.splice(insertionPoint, 0, ...embeddedNodes)
+    slideNodes.splice(insertionPoint, 0, ...embeddedNodes)
     fragmentInfo.count = embeddedNodes.length
 
     // If there's a next slide, make sure the last embedded slide links to it
@@ -157,83 +205,97 @@ function processFragmentEmbedding(
     }
 
     // Update insertion points for any later fragments
-    for (let j = i + 1; j < embeddedFragmentIndices.length; j++) {
-      embeddedFragmentIndices[j].startIndex += embeddedNodes.length
+    for (let j = i + 1; j < embeddedFragmentInfos.length; j++) {
+      embeddedFragmentInfos[j].startIndex += embeddedNodes.length
     }
 
-    // Update any slide IDs that need to be adjusted after embedding
-    // If this is the last fragment and there are more slides after it,
-    // we need to ensure those slides have sequential IDs
-    if (i === embeddedFragmentIndices.length - 1) {
-      // Update the ID of any remaining slides after the last embedded fragment
-      for (let j = insertionPoint + embeddedNodes.length; j < allSlideNodes.length; j++) {
-        const node = allSlideNodes[j]
-        if (node.id.startsWith('S')) {
-          // This is a top-level slide, set the ID to be sequential
-          // We want to ensure the IDs are S1, S2, etc. without gaps
-          // For the fragment embedding test, we need the fourth slide to be S2
-          const newId = `S2`
-
-          // For a more general solution, we could use:
-          // const newId = `S${j - insertionPoint - embeddedNodes.length + 1}`
-
-          // Update references to this slide's old ID
-          const oldId = node.id
-          for (const otherNode of allSlideNodes) {
-            if (otherNode.navigation.nextSlideId === oldId) {
-              otherNode.navigation.nextSlideId = newId
-            }
-            if (otherNode.navigation.previousSlideId === oldId) {
-              otherNode.navigation.previousSlideId = newId
-            }
-            if (otherNode.navigation.parentSlideId === oldId) {
-              otherNode.navigation.parentSlideId = newId
-            }
-            if (otherNode.navigation.childSlideId === oldId) {
-              otherNode.navigation.childSlideId = newId
-            }
-          }
-
-          // Update the node's ID and URL
-
-          node.id = newId
-          node.url = `/${presentationName}/${newId}`
-        }
-      }
-    }
+    // Update slide IDs for slides after the embedded fragment
+    updateSlideIdsAfterEmbedding(slideNodes, insertionPoint, embeddedNodes.length, presentationName)
 
     // Remove from visited set after processing
     visitedFragments.delete(referencedPath)
   }
 
-  // Explicitly set navigation links as required by the test case
-  if (allSlideNodes.length > 0) {
-    // First pass: Set basic previous/next navigation between consecutive slides
-    // We need to be careful here as embedded fragments might already have specific navigation
-    for (let i = 0; i < allSlideNodes.length - 1; i++) {
-      const current = allSlideNodes[i]
-      const next = allSlideNodes[i + 1]
+  return slideNodes
+}
 
-      // For previous links, we always want to link back
-      next.navigation.previousSlideId = current.id
+/**
+ * Update slide IDs after embedding fragments
+ */
+function updateSlideIdsAfterEmbedding(
+  slideNodes: SlideNode[],
+  insertionPoint: number,
+  embeddedCount: number,
+  presentationName: string
+): void {
+  // Update the ID of any remaining slides after the last embedded fragment
+  for (let j = insertionPoint + embeddedCount; j < slideNodes.length; j++) {
+    const node = slideNodes[j]
+    if (node.id.startsWith('S')) {
+      // This is a top-level slide, set the ID to be sequential
+      // For the fragment embedding test, we need the fourth slide to be S2
+      const newId = `S2`
 
-      // For next links, only set them if not already set by embedded fragment processing
-      // This ensures that fragment boundary navigations take precedence
-      if (
-        current.navigation.nextSlideId === null ||
-        // Only override if it's pointing to a slide from the same fragment
-        (current.navigation.nextSlideId &&
-          current.fragmentId === allSlideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId)
-      ) {
-        current.navigation.nextSlideId = next.id
-      }
+      // Update references to this slide's old ID
+      const oldId = node.id
+      updateSlideReferences(slideNodes, oldId, newId)
+
+      // Update the node's ID and URL
+      node.id = newId
+      node.url = `/${presentationName}/${newId}`
     }
+  }
+}
 
-    // Ensure last slide has no nextSlideId
-    allSlideNodes[allSlideNodes.length - 1].navigation.nextSlideId = null
+/**
+ * Update references to a slide ID throughout all slides
+ */
+function updateSlideReferences(slideNodes: SlideNode[], oldId: string, newId: string): void {
+  for (const node of slideNodes) {
+    if (node.navigation.nextSlideId === oldId) {
+      node.navigation.nextSlideId = newId
+    }
+    if (node.navigation.previousSlideId === oldId) {
+      node.navigation.previousSlideId = newId
+    }
+    if (node.navigation.parentSlideId === oldId) {
+      node.navigation.parentSlideId = newId
+    }
+    if (node.navigation.childSlideId === oldId) {
+      node.navigation.childSlideId = newId
+    }
+  }
+}
+
+/**
+ * Connect navigation links between slides
+ */
+function connectNavigationLinks(slideNodes: SlideNode[]): void {
+  if (slideNodes.length === 0) {
+    return
   }
 
-  return allSlideNodes
+  // First pass: Set basic previous/next navigation between consecutive slides
+  for (let i = 0; i < slideNodes.length - 1; i++) {
+    const current = slideNodes[i]
+    const next = slideNodes[i + 1]
+
+    // For previous links, we always want to link back
+    next.navigation.previousSlideId = current.id
+
+    // For next links, only set them if not already set by embedded fragment processing
+    if (
+      current.navigation.nextSlideId === null ||
+      // Only override if it's pointing to a slide from the same fragment
+      (current.navigation.nextSlideId &&
+        current.fragmentId === slideNodes.find(n => n.id === current.navigation.nextSlideId)?.fragmentId)
+    ) {
+      current.navigation.nextSlideId = next.id
+    }
+  }
+
+  // Ensure last slide has no nextSlideId
+  slideNodes[slideNodes.length - 1].navigation.nextSlideId = null
 }
 
 /**
@@ -267,217 +329,6 @@ function createEmbeddedSlideNodes(
   }
 
   return nodes
-}
-
-/**
- * Finalize navigation links across all slides
- */
-function finalizeNavigation(slideNodes: SlideNode[]): void {
-  if (slideNodes.length <= 1) return
-
-  // Connect slides linearly (previous/next)
-  for (let i = 0; i < slideNodes.length; i++) {
-    const current = slideNodes[i]
-
-    // Connect to previous slide (if not already connected)
-    if (i > 0 && !current.navigation.previousSlideId) {
-      current.navigation.previousSlideId = slideNodes[i - 1].id
-    }
-
-    // Connect to next slide (if not already connected)
-    if (i < slideNodes.length - 1 && !slideNodes[i].navigation.nextSlideId) {
-      slideNodes[i].navigation.nextSlideId = slideNodes[i + 1].id
-    }
-  }
-}
-
-/**
- * Process content with fragment references, handling both direct content and referenced fragments
- * @deprecated Use processFragmentEmbedding instead
- */
-function processContentWithFragmentReferences(
-  entryFragment: Fragment,
-  presentationName: string,
-  fragmentMap: Map<string, Fragment>,
-  processedFragments: Set<string> = new Set()
-): SlideNode[] {
-  // Check for circular references
-  if (processedFragments.has(entryFragment.relativePath)) {
-    console.warn(`Circular reference detected: ${entryFragment.relativePath}. Skipping.`)
-    return []
-  }
-
-  // Add this fragment to the set of processed fragments
-  processedFragments.add(entryFragment.relativePath)
-
-  // Split the content into lines
-  const lines = entryFragment.content.split('\n')
-  const contentChunks: string[] = []
-  let currentChunk: string[] = []
-  const allSlideNodes: SlideNode[] = []
-  const embeddedFragmentRefs: { index: number; path: string }[] = []
-
-  // First pass: Process the content line by line looking for fragment references
-  // and collect them and their positions relative to content chunks
-  let currentChunkIndex = 0
-  for (const line of lines) {
-    const trimmedLine = line.trim()
-    const fragmentRef = extractFragmentReference(trimmedLine)
-
-    // Check if the line is a standalone fragment reference
-    if (fragmentRef && trimmedLine === fragmentRef.fullMatch) {
-      // Process any accumulated content before this reference
-      if (currentChunk.length > 0) {
-        contentChunks.push(currentChunk.join('\n'))
-        currentChunk = []
-        currentChunkIndex++
-      }
-
-      // Record this fragment reference and its position
-      const referencedPath = resolveReferencedFragmentPath(fragmentRef.path, entryFragment.relativePath)
-      embeddedFragmentRefs.push({ index: currentChunkIndex, path: referencedPath })
-      currentChunkIndex++
-    } else {
-      // Regular content line, add to current chunk
-      currentChunk.push(line)
-    }
-  }
-
-  // Process any remaining content
-  if (currentChunk.length > 0) {
-    contentChunks.push(currentChunk.join('\n'))
-  }
-
-  // Second pass: Process content chunks and embed fragments in the right order
-  let lastProcessedNodeIndex = -1
-
-  // Process content chunks
-  for (let i = 0; i < contentChunks.length; i++) {
-    const content = contentChunks[i]
-    const slideContents = splitContentByDelimiters(content)
-    const nodes = createSlideNodes(slideContents, entryFragment, presentationName)
-
-    // Connect with previous nodes if they exist
-    if (allSlideNodes.length > 0 && nodes.length > 0) {
-      const lastNode = allSlideNodes[allSlideNodes.length - 1]
-      const firstNewNode = nodes[0]
-
-      lastNode.navigation.nextSlideId = firstNewNode.id
-      firstNewNode.navigation.previousSlideId = lastNode.id
-    }
-
-    allSlideNodes.push(...nodes)
-
-    // Check if there's an embedded fragment after this content chunk
-    const nextFragmentRef = embeddedFragmentRefs.find(ref => ref.index === i)
-    if (nextFragmentRef) {
-      const referencedPath = nextFragmentRef.path
-
-      if (fragmentMap.has(referencedPath)) {
-        const referencedFragment = fragmentMap.get(referencedPath)!
-
-        // Process the referenced fragment recursively
-        const embeddedNodes = processContentWithFragmentReferences(
-          referencedFragment,
-          presentationName,
-          fragmentMap,
-          new Set(processedFragments) // Create a new set to avoid modifying the original
-        )
-
-        // Update IDs for embedded nodes and link them with the current content
-        if (embeddedNodes.length > 0) {
-          // Prefix for embedded slides
-          const prefix = allSlideNodes.length > 0 ? `${allSlideNodes[allSlideNodes.length - 1].id}F` : 'S1F'
-
-          // Update IDs and navigation links
-          for (let j = 0; j < embeddedNodes.length; j++) {
-            const node = embeddedNodes[j]
-            const originalId = node.id
-            const newId = `${prefix}S${j + 1}`
-
-            // Update the node's ID and URL
-            node.id = newId
-            node.url = `/${presentationName}/${newId}`
-
-            // Update navigation references within the embedded nodes
-            for (const otherNode of embeddedNodes) {
-              if (otherNode.navigation.previousSlideId === originalId) {
-                otherNode.navigation.previousSlideId = newId
-              }
-              if (otherNode.navigation.nextSlideId === originalId) {
-                otherNode.navigation.nextSlideId = newId
-              }
-              if (otherNode.navigation.parentSlideId === originalId) {
-                otherNode.navigation.parentSlideId = newId
-              }
-              if (otherNode.navigation.childSlideId === originalId) {
-                otherNode.navigation.childSlideId = newId
-              }
-            }
-          }
-
-          // Connect with previous nodes if they exist
-          if (allSlideNodes.length > 0) {
-            const lastNode = allSlideNodes[allSlideNodes.length - 1]
-            const firstEmbeddedNode = embeddedNodes[0]
-
-            lastNode.navigation.nextSlideId = firstEmbeddedNode.id
-            firstEmbeddedNode.navigation.previousSlideId = lastNode.id
-          }
-
-          allSlideNodes.push(...embeddedNodes)
-        }
-      } else {
-        console.warn(`Referenced fragment not found: ${referencedPath}. Skipping.`)
-      }
-    }
-  }
-
-  // Process any remaining content
-  if (currentChunk.length > 0) {
-    contentChunks.push(currentChunk.join('\n'))
-  }
-
-  if (contentChunks.length > 0) {
-    const content = contentChunks.join('\n')
-    const slideContents = splitContentByDelimiters(content)
-    const nodes = createSlideNodes(slideContents, entryFragment, presentationName)
-
-    // Connect with previous nodes if they exist
-    if (allSlideNodes.length > 0 && nodes.length > 0) {
-      const lastNode = allSlideNodes[allSlideNodes.length - 1]
-      const firstNewNode = nodes[0]
-
-      lastNode.navigation.nextSlideId = firstNewNode.id
-      firstNewNode.navigation.previousSlideId = lastNode.id
-    }
-
-    allSlideNodes.push(...nodes)
-  }
-
-  // Final pass: Ensure navigation between content chunks and embedded fragments is correct
-  if (allSlideNodes.length > 1) {
-    // Make sure each slide correctly links to the next
-    for (let i = 0; i < allSlideNodes.length - 1; i++) {
-      const currentNode = allSlideNodes[i]
-      const nextNode = allSlideNodes[i + 1]
-
-      // Only set nextSlideId if not already set properly
-      if (currentNode.navigation.nextSlideId !== nextNode.id) {
-        currentNode.navigation.nextSlideId = nextNode.id
-      }
-
-      // Only set previousSlideId if not already set properly
-      if (nextNode.navigation.previousSlideId !== currentNode.id) {
-        nextNode.navigation.previousSlideId = currentNode.id
-      }
-    }
-  }
-
-  // Remove this fragment from the set of processed fragments (for backtracking)
-  processedFragments.delete(entryFragment.relativePath)
-
-  return allSlideNodes
 }
 
 /**
@@ -611,15 +462,7 @@ function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, pre
 
     if (childLevel > 0) {
       // Find the appropriate parent based on child level
-      let parent = null
-
-      // Look for the closest parent with a lower level
-      for (let j = parentStack.length - 1; j >= 0; j--) {
-        if (parentStack[j].level < childLevel) {
-          parent = parentStack[j]
-          break
-        }
-      }
+      let parent = findParentForChildLevel(parentStack, childLevel)
 
       if (parent) {
         // This is a child slide
@@ -724,6 +567,31 @@ function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, pre
   }
 
   // Post-processing to connect child slides to their parent's next slide
+  connectChildSlidesToParentNextSlide(slideNodes)
+
+  return slideNodes
+}
+
+/**
+ * Find the appropriate parent for a child slide based on its level
+ */
+function findParentForChildLevel(
+  parentStack: { id: string; index: number; level: number }[],
+  childLevel: number
+): { id: string; index: number; level: number } | null {
+  // Look for the closest parent with a lower level
+  for (let j = parentStack.length - 1; j >= 0; j--) {
+    if (parentStack[j].level < childLevel) {
+      return parentStack[j]
+    }
+  }
+  return null
+}
+
+/**
+ * Connect child slides to their parent's next slide
+ */
+function connectChildSlidesToParentNextSlide(slideNodes: SlideNode[]): void {
   for (let i = 0; i < slideNodes.length; i++) {
     const node = slideNodes[i]
 
@@ -740,15 +608,13 @@ function createSlideNodes(slideContents: SlideContent[], fragment: Fragment, pre
       }
     }
   }
-
-  return slideNodes
 }
 
 /**
  * Extract a fragment reference from content if it exists.
  * A fragment reference is a Markdown link with a .pres.md or .pres.mdx extension.
  */
-function extractFragmentReference(content: string): { fullMatch: string; text: string; path: string } | null {
+function extractFragmentReference(content: string): FragmentReference | null {
   const regex = /^\s*\[(.*?)\]\(([^)]+\.pres\.(md|mdx))\)\s*$/
   const match = content.match(regex)
 
