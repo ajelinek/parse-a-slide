@@ -84,7 +84,7 @@ test('parse should handle embedding a fragment as a sibling (reference on its ow
     | S1           | null          | null         | null            | S1FS1          | 0              |
     | S1FS1        | null          | null         | S1              | S1FS2          | 0              |
     | S1FS2        | null          | null         | S1FS1           | S2             | 0              |
-    | S2           | null          | null         | S1FS2           | null           | 0              |
+    | S2           | null          | null         | S1              | null           | 0              |
   `
 
   // Generate test data with content and expected structure

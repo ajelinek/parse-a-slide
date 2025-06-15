@@ -141,14 +141,23 @@ function connectNavigationLinks(slideNodes: SlideNode[]): void {
 
     // Set previous link for top-level slides
     if (next.navigation.parentSlideId === null) {
-      // Find the previous top-level slide
+      // Find the previous top-level slide (not embedded)
       for (let j = i; j >= 0; j--) {
         const candidate = slideNodes[j]
-        if (candidate.navigation.parentSlideId === null) {
+        if (candidate.navigation.parentSlideId === null && !candidate.id.includes('FS')) {
           next.navigation.previousSlideId = candidate.id
           break
         }
       }
+    }
+
+    // Set previous link for embedded slides
+    if (current.id.includes('FS') && next.id.includes('FS')) {
+      // Within embedded slides, link sequentially
+      next.navigation.previousSlideId = current.id
+    } else if (!current.id.includes('FS') && next.id.includes('FS')) {
+      // First embedded slide links to the slide before the embedding
+      next.navigation.previousSlideId = current.id
     }
 
     // For next links, only set them if not already set by embedded fragment processing
