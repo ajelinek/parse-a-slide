@@ -161,3 +161,62 @@ test('parse should handle embedding a fragment as a child', () => {
   // Assert that parser output matches our expectations
   assertSlideNodes(slideNodes, expectedSlides)
 })
+
+test('parse should ignore fragment reference not on its own line', () => {
+  // Define raw slide content for input
+  const slideContent = {
+    S1: `
+    # Slide 1
+    Some text [Details](./ignored.pres.md) and more text.
+    `,
+  }
+
+  const entryFragment = {
+    content: `
+      # Slide 1
+      Some text [Details](./ignored.pres.md) and more text.
+    `,
+    isEntry: true,
+    relativePath: 'entry.pres.md',
+    id: 'entry-fragment',
+  }
+
+  // Note: We create an ignored fragment to ensure it's not processed
+  const ignoredFragment = {
+    content: `
+      # This should not be processed
+    `,
+    isEntry: false,
+    relativePath: 'ignored.pres.md',
+    id: 'ignored-fragment',
+  }
+
+  // Arrange
+  const presentation = setUp({
+    fragment1: entryFragment,
+    fragment2: ignoredFragment,
+  })
+
+  // Act
+  const result = parse(presentation)
+  const slideNodes = assertSuccessResult(result)
+
+  // Verify we have only 1 slide (the ignored fragment should not be processed)
+  expect(slideNodes).toHaveLength(1)
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
+    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
+    | S1 | null          | null         | null            | null        | 0              |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData(slideContent, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
+
+  // Additionally verify that the content contains the full line with fragment reference
+  expect(slideNodes[0].content).toContain('Some text [Details](./ignored.pres.md) and more text.')
+})

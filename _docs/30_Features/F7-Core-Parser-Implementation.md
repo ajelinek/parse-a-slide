@@ -450,7 +450,7 @@ This section outlines test scenarios for the Core Parser module using Gherkin sy
     And SlideNode "S1.C2" should have parentSlideId "S1" and previousSlideId "S1.C1" and nextSlideId "S2"
     And SlideNode "S2" should have previousSlideId "S1"
 
--   [ ] Scenario: Fragment reference not on its own line is ignored
+-   [x] Scenario: Fragment reference not on its own line is ignored
     Given a Presentation with one entry Fragment "entry.pres.md"
     And Fragment "entry.pres.md" contains:
     """
