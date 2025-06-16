@@ -63,20 +63,35 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
 }
 
 /**
+ * Global context for slide generation across all fragments
+ */
+interface SlideGenerationContext {
+  globalTopLevelCount: number
+  globalParentStack: { id: string; level: number }[]
+}
+
+/**
  * Parse content from a fragment, handling any embedded fragments
  */
 function parseFragmentContent(
   fragment: Fragment,
   fragmentMap: Map<string, Fragment>,
   presentationName: string,
-  processedFragments: Set<string> = new Set()
+  processedFragments: Set<string> = new Set(),
+  inheritedNestingLevel: number = 0,
+  context?: SlideGenerationContext
 ): SlideNode[] {
   const slideContents = splitContentByDelimiters(fragment.content)
   const visitedFragments = new Set(processedFragments)
 
+  // Initialize or use existing slide generation context
+  const slideContext = context || {
+    globalTopLevelCount: 0,
+    globalParentStack: [],
+  }
+
   let slideNodes: SlideNode[] = []
   const buffer: SlideContent[] = []
-  let globalTopLevelCount = 0
 
   const flushBuffer = () => {
     if (buffer.length > 0) {
@@ -84,9 +99,9 @@ function parseFragmentContent(
         buffer.splice(0, buffer.length),
         fragment,
         presentationName,
-        globalTopLevelCount
+        inheritedNestingLevel,
+        slideContext
       )
-      globalTopLevelCount += newNodes.filter(n => n.delimiterLevel === 0).length
       slideNodes.push(...newNodes)
     }
   }
@@ -103,35 +118,69 @@ function parseFragmentContent(
       if (fragmentMap.has(referencedPath) && !visitedFragments.has(referencedPath)) {
         visitedFragments.add(referencedPath)
         const referencedFragment = fragmentMap.get(referencedPath)!
-        const embeddedNodes = parseFragmentContent(referencedFragment, fragmentMap, presentationName, visitedFragments)
 
-        // Handle embedded fragments based on their child level
-        if (section.childLevel > 0) {
-          // This is a child-level fragment - treat as child slides
-          const parentSlideId = slideNodes.length > 0 ? slideNodes[slideNodes.length - 1].id : 'S1'
+        // Capture the slide that immediately precedes this fragment reference
+        const slideBeforeFragmentRef = slideNodes.length > 0 ? slideNodes[slideNodes.length - 1] : null
 
-          for (let i = 0; i < embeddedNodes.length; i++) {
-            const node = embeddedNodes[i]
-            const newId = `${parentSlideId}C${i + 1}`
-            node.id = newId
-            node.url = `/${presentationName}/${newId}`
-            node.navigation.parentSlideId = parentSlideId
-            node.delimiterLevel = section.childLevel
-            node.fragmentId = fragment.id
+        // For embedded fragments, the embedding level becomes the base level
+        // All content in the embedded fragment should be at or relative to this level
+        const embeddingLevel = section.childLevel + inheritedNestingLevel
+
+        const embeddedNodes = parseFragmentContent(
+          referencedFragment,
+          fragmentMap,
+          presentationName,
+          visitedFragments,
+          embeddingLevel,
+          slideContext
+        )
+
+        // Adjust delimiter levels: embedded fragment content should maintain its internal
+        // hierarchy but be based at the embedding level
+        embeddedNodes.forEach(node => {
+          // The first slide in embedded fragment should be at embedding level
+          // Subsequent slides maintain their relative hierarchy
+          const relativeLevel = node.delimiterLevel - embeddingLevel
+          if (relativeLevel > 0) {
+            // This is a child slide within the embedded fragment
+            // Keep it at the same level as the embedding level for now
+            // TODO: This might need refinement based on the exact expected behavior
+            node.delimiterLevel = embeddingLevel
           }
-        } else {
+        })
+
+        // Handle FS naming only for sibling-level fragments
+        if (section.childLevel === 0) {
           // This is a sibling-level fragment - use existing FS naming
-          const lastSlideId = slideNodes.length > 0 ? slideNodes[slideNodes.length - 1].id : 'S0'
+          // Use the slide that was captured before fragment processing
+          const baseSlideId = slideBeforeFragmentRef ? slideBeforeFragmentRef.id : 'S0'
+
+          // Count how many top-level slides we're renaming
+          const topLevelSlidesCount = embeddedNodes.filter(
+            node => node.delimiterLevel === 0 || node.delimiterLevel === embeddingLevel
+          ).length
+
+          // Adjust the global counter to account for the renamed slides
+          slideContext.globalTopLevelCount -= topLevelSlidesCount
+
           for (let i = 0; i < embeddedNodes.length; i++) {
             const node = embeddedNodes[i]
-            const newId = `${lastSlideId}FS${i + 1}`
+            const newId = `${baseSlideId}FS${i + 1}`
             node.id = newId
             node.url = `/${presentationName}/${newId}`
             node.fragmentId = fragment.id
           }
         }
 
+        // For embedded fragments, just add them directly since they should be processed
+        // with the correct inherited nesting level already by the recursive call
         slideNodes.push(...embeddedNodes)
+
+        // Update fragment ID for embedded nodes to track their origin
+        embeddedNodes.forEach(node => {
+          node.fragmentId = fragment.id
+        })
+
         visitedFragments.delete(referencedPath)
       } else if (!fragmentMap.has(referencedPath)) {
         // Fragment not found - log warning and continue
@@ -341,32 +390,35 @@ function createSlideNodes(
   slideContents: SlideContent[],
   fragment: Fragment,
   presentationName: string,
-  startingTopLevelCount: number = 0
+  inheritedNestingLevel: number = 0,
+  context: SlideGenerationContext
 ): SlideNode[] {
   const slideNodes: SlideNode[] = []
-  let topLevelCount = startingTopLevelCount
-  const parentStack: { id: string; level: number }[] = []
 
   for (const content of slideContents) {
-    const isTopLevel = content.childLevel === 0
+    const absoluteLevel = content.childLevel + inheritedNestingLevel
+    const isTopLevel = absoluteLevel === inheritedNestingLevel
     let slideId: string
     let parentSlideId: string | null = null
 
-    if (isTopLevel) {
-      slideId = `S${++topLevelCount}`
-      parentStack.length = 0
+    if (isTopLevel && inheritedNestingLevel === 0) {
+      slideId = `S${++context.globalTopLevelCount}`
+      context.globalParentStack.length = 0
     } else {
-      const parent = findParent(parentStack, content.childLevel)
+      const parent = findParent(context.globalParentStack, absoluteLevel)
       if (parent) {
         const childCount = slideNodes.filter(n => n.id.startsWith(parent.id + 'C')).length + 1
         slideId = `${parent.id}C${childCount}`
         parentSlideId = parent.id
       } else {
-        slideId = `S${++topLevelCount}`
+        slideId = `S${++context.globalTopLevelCount}`
       }
 
-      while (parentStack.length && parentStack[parentStack.length - 1].level >= content.childLevel) {
-        parentStack.pop()
+      while (
+        context.globalParentStack.length &&
+        context.globalParentStack[context.globalParentStack.length - 1].level >= absoluteLevel
+      ) {
+        context.globalParentStack.pop()
       }
     }
 
@@ -382,11 +434,11 @@ function createSlideNodes(
       },
       fragmentId: fragment.id,
       userDefinedFrontMatter: {},
-      delimiterLevel: content.childLevel,
+      delimiterLevel: absoluteLevel,
     }
 
     slideNodes.push(slideNode)
-    parentStack.push({ id: slideId, level: content.childLevel })
+    context.globalParentStack.push({ id: slideId, level: absoluteLevel })
 
     if (parentSlideId) {
       const parentNode = slideNodes.find(n => n.id === parentSlideId)
