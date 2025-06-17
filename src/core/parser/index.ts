@@ -1,15 +1,64 @@
+/**
+ * PARSER ORCHESTRATION - HIGH-LEVEL FLOW
+ * =====================================
+ *
+ * This module orchestrates the parsing of presentations into slide nodes through a structured pipeline:
+ *
+ * 1. **ENTRY VALIDATION**
+ *    - Validate presentation structure and locate entry fragment
+ *    - Create fragment map for efficient lookups during processing
+ *
+ * 2. **CONTENT SPLITTING** (content-splitter.ts)
+ *    - Split fragment content by delimiters (---) into slide sections
+ *    - Determine nesting levels and hierarchy structure
+ *
+ * 3. **FRAGMENT PROCESSING** (fragment-resolver.ts)
+ *    - Detect fragment references like `@./other-fragment.md`
+ *    - Resolve relative paths and handle circular reference detection
+ *    - Recursively embed referenced fragments with proper nesting
+ *
+ * 4. **CONTENT BUFFERING** (content-processor.ts)
+ *    - Buffer non-fragment content for slide creation
+ *    - Flush buffers when fragment references are encountered
+ *    - Manage slide node accumulation and retrieval
+ *
+ * 5. **SLIDE CREATION** (slide-builder.ts)
+ *    - Generate unique slide IDs based on hierarchy
+ *    - Create slide nodes with proper metadata and nesting levels
+ *    - Apply fragment substitution naming for embedded fragments
+ *
+ * 6. **NAVIGATION LINKING** (navigation-linker.ts)
+ *    - Establish parent-child relationships between slides
+ *    - Link sequential navigation (previous/next) within hierarchy levels
+ *    - Handle complex navigation scenarios across nesting levels
+ *
+ * 7. **PROCESSOR PIPELINE** (processor-pipeline.ts)
+ *    - Apply optional processors to transform slide content
+ *    - Validate processor results and handle errors
+ *
+ * CONTEXT MANAGEMENT (context-manager.ts):
+ * - Global context tracks state across all fragments
+ * - Parent stack maintains hierarchy during recursive processing
+ * - Circular reference detection prevents infinite loops
+ *
+ * ERROR HANDLING:
+ * - Result types for safe error propagation
+ * - Graceful handling of missing fragments with warnings
+ * - Validation of presentation structure before processing
+ */
+
 import { Result } from 'neverthrow'
 import { Fragment, Presentation } from '../../types/presentation'
 import { Processor } from '../../types/processor'
 import { SlideNode } from '../../types/slide'
-import { AppError, ErrorCode, createError, ok, err } from '../../utils/error'
+import { AppError, ErrorCode, createError, err, ok } from '../../utils/error'
+import { ContentProcessor, createContentProcessor } from './content-processor'
 import { splitContentByDelimiters } from './content-splitter'
-import { extractFragmentReference, resolveFragmentPath, applyFragmentSubstitutionNaming } from './fragment-resolver'
-import { createSlideNodes } from './slide-builder'
+import { createGlobalContext } from './context-manager'
+import { applyFragmentSubstitutionNaming, extractFragmentReference, resolveFragmentPath } from './fragment-resolver'
 import { connectNavigationLinks } from './navigation-linker'
-import { createGlobalContext, pushFragmentToStack, popFragmentFromStack } from './context-manager'
 import { applyProcessors } from './processor-pipeline'
-import { SlideContent, SlideCreationContext, GlobalContext } from './types'
+import { GlobalContext, SlideContent } from './types'
 
 /**
  * Parse a presentation into a list of slide nodes.
@@ -18,23 +67,15 @@ import { SlideContent, SlideCreationContext, GlobalContext } from './types'
  * @returns A Result containing an array of slide nodes or an error
  */
 export function parse(presentation: Presentation, processors: Processor[] = []): Result<SlideNode[], AppError> {
-  // Validate presentation and find entry fragment
   const entryFragmentResult = validatePresentation(presentation)
   if (entryFragmentResult.isErr()) {
     return err(entryFragmentResult.error)
   }
 
-  // Create a map of fragments by relative path for reference lookups
-  const fragmentMap = new Map<string, Fragment>()
-  for (const fragment of presentation.fragments) {
-    fragmentMap.set(fragment.relativePath, fragment)
-  }
+  const fragmentMap = createFragmentMap(presentation.fragments)
 
   try {
-    // Initialize global context
     const globalContext = createGlobalContext()
-
-    // Parse the presentation via a single unified flow that supports embedded fragments
     const slideNodes = parseFragmentContent(
       entryFragmentResult.value,
       fragmentMap,
@@ -44,19 +85,9 @@ export function parse(presentation: Presentation, processors: Processor[] = []):
       globalContext
     )
 
-    // Apply processors to all slide nodes
-    const processedNodes = applyProcessors(slideNodes, processors)
-    if (processedNodes.isErr()) {
-      return processedNodes
-    }
-
-    return ok(processedNodes.value)
+    return applyProcessors(slideNodes, processors)
   } catch (error) {
-    // Handle parser errors (like delimiter sequence errors)
-    if (error instanceof Error && 'code' in error) {
-      return err(error as AppError)
-    }
-    return err(createError(error instanceof Error ? error.message : String(error), ErrorCode.PARSER_ERROR))
+    return err(handleParserError(error))
   }
 }
 
@@ -71,119 +102,184 @@ export function validatePresentation(presentation: Presentation): Result<Fragmen
   return ok(entryFragment)
 }
 
-/**
- * Parse content from a fragment, handling any embedded fragments
- */
 function parseFragmentContent(
   fragment: Fragment,
   fragmentMap: Map<string, Fragment>,
   presentationName: string,
-  processedFragments: Set<string> = new Set(),
-  inheritedNestingLevel: number = 0,
+  processedFragments: Set<string>,
+  inheritedNestingLevel: number,
   globalContext: GlobalContext
 ): SlideNode[] {
   const slideContents = splitContentByDelimiters(fragment.content)
   const visitedFragments = new Set(processedFragments)
-
-  let slideNodes: SlideNode[] = []
-  const buffer: SlideContent[] = []
-
-  const flushBuffer = () => {
-    if (buffer.length > 0) {
-      const creationContext: SlideCreationContext = {
-        presentationName,
-        fragment,
-        inheritedNestingLevel,
-      }
-      const newNodes = createSlideNodes(buffer.splice(0, buffer.length), creationContext, globalContext)
-      slideNodes.push(...newNodes)
-    }
-  }
+  const contentProcessor = createContentProcessor(fragment, presentationName, inheritedNestingLevel, globalContext)
 
   for (const section of slideContents) {
     const content = section.content.trim()
     const fragmentRef = extractFragmentReference(content)
 
-    if (fragmentRef && content === fragmentRef.fullMatch) {
-      flushBuffer()
-
-      const referencedPath = resolveFragmentPath(fragmentRef.path, fragment.relativePath)
-
-      if (fragmentMap.has(referencedPath) && !visitedFragments.has(referencedPath)) {
-        visitedFragments.add(referencedPath)
-        const referencedFragment = fragmentMap.get(referencedPath)!
-
-        // Capture the slide that immediately precedes this fragment reference
-        const slideBeforeFragmentRef = slideNodes.length > 0 ? slideNodes[slideNodes.length - 1] : null
-
-        // For embedded fragments, the embedding level becomes the base level
-        // All content in the embedded fragment should be at or relative to this level
-        const embeddingLevel = section.childLevel + inheritedNestingLevel
-
-        const embeddedNodes = parseFragmentContent(
-          referencedFragment,
-          fragmentMap,
-          presentationName,
-          visitedFragments,
-          embeddingLevel,
-          globalContext
-        )
-
-        // Adjust delimiter levels: embedded fragment content should maintain its internal
-        // hierarchy but be based at the embedding level
-        embeddedNodes.forEach(node => {
-          // The first slide in embedded fragment should be at embedding level
-          // Subsequent slides maintain their relative hierarchy
-          const relativeLevel = node.delimiterLevel - embeddingLevel
-          if (relativeLevel > 0) {
-            // This is a child slide within the embedded fragment
-            // Keep it at the same level as the embedding level for now
-            node.delimiterLevel = embeddingLevel
-          }
-        })
-
-        // Handle FS naming only for sibling-level fragments
-        if (section.childLevel === 0) {
-          // This is a sibling-level fragment - use existing FS naming
-          // Use the slide that was captured before fragment processing
-          const baseSlideId = slideBeforeFragmentRef ? slideBeforeFragmentRef.id : 'S0'
-
-          // Count how many top-level slides we're renaming
-          const topLevelSlidesCount = embeddedNodes.filter(
-            node => node.delimiterLevel === 0 || node.delimiterLevel === embeddingLevel
-          ).length
-
-          // Adjust the global counter to account for the renamed slides
-          globalContext.globalTopLevelCount -= topLevelSlidesCount
-
-          applyFragmentSubstitutionNaming(embeddedNodes, baseSlideId, embeddingLevel, presentationName, fragment.id)
-        }
-
-        // For embedded fragments, just add them directly since they should be processed
-        // with the correct inherited nesting level already by the recursive call
-        slideNodes.push(...embeddedNodes)
-
-        // Update fragment ID for embedded nodes to track their origin
-        embeddedNodes.forEach(node => {
-          node.fragmentId = fragment.id
-        })
-
-        visitedFragments.delete(referencedPath)
-      } else if (!fragmentMap.has(referencedPath)) {
-        // Fragment not found - log warning and continue
-        console.warn(`Fragment reference '${fragmentRef.path}' not found. Skipping.`)
-        // Also add buffer to handle this case
-        buffer.push(section)
-      } else if (visitedFragments.has(referencedPath)) {
-        // Circular reference detected
-        throw createError('Circular reference detected', ErrorCode.PARSER_CIRCULAR_REFERENCE)
-      }
+    if (isStandaloneFragmentReference(fragmentRef, content)) {
+      contentProcessor.flushBuffer()
+      processFragmentReference(
+        fragmentRef!,
+        section,
+        fragment,
+        fragmentMap,
+        presentationName,
+        visitedFragments,
+        inheritedNestingLevel,
+        globalContext,
+        contentProcessor
+      )
     } else {
-      buffer.push(section)
+      contentProcessor.addToBuffer(section)
     }
   }
 
-  flushBuffer()
-  connectNavigationLinks(slideNodes)
-  return slideNodes
+  contentProcessor.flushBuffer()
+  connectNavigationLinks(contentProcessor.getSlideNodes())
+  return contentProcessor.getSlideNodes()
+}
+
+function createFragmentMap(fragments: Fragment[]): Map<string, Fragment> {
+  const fragmentMap = new Map<string, Fragment>()
+  for (const fragment of fragments) {
+    fragmentMap.set(fragment.relativePath, fragment)
+  }
+  return fragmentMap
+}
+
+function handleParserError(error: unknown): AppError {
+  if (error instanceof Error && 'code' in error) {
+    return error as AppError
+  }
+  return createError(error instanceof Error ? error.message : String(error), ErrorCode.PARSER_ERROR)
+}
+
+function isStandaloneFragmentReference(fragmentRef: any, content: string): boolean {
+  return fragmentRef && content === fragmentRef.fullMatch
+}
+
+function processFragmentReference(
+  fragmentRef: any,
+  section: SlideContent,
+  currentFragment: Fragment,
+  fragmentMap: Map<string, Fragment>,
+  presentationName: string,
+  visitedFragments: Set<string>,
+  inheritedNestingLevel: number,
+  globalContext: GlobalContext,
+  contentProcessor: ContentProcessor
+): void {
+  const referencedPath = resolveFragmentPath(fragmentRef.path, currentFragment.relativePath)
+
+  if (isCircularReference(visitedFragments, referencedPath)) {
+    throw createError('Circular reference detected', ErrorCode.PARSER_CIRCULAR_REFERENCE)
+  }
+
+  if (!fragmentMap.has(referencedPath)) {
+    handleMissingFragment(fragmentRef.path, section, contentProcessor)
+    return
+  }
+
+  if (visitedFragments.has(referencedPath)) {
+    return
+  }
+
+  processEmbeddedFragment(
+    fragmentMap.get(referencedPath)!,
+    section,
+    currentFragment,
+    fragmentMap,
+    presentationName,
+    visitedFragments,
+    inheritedNestingLevel,
+    globalContext,
+    contentProcessor
+  )
+}
+
+function isCircularReference(visitedFragments: Set<string>, referencedPath: string): boolean {
+  return visitedFragments.has(referencedPath)
+}
+
+function handleMissingFragment(fragmentPath: string, section: SlideContent, contentProcessor: ContentProcessor): void {
+  console.warn(`Fragment reference '${fragmentPath}' not found. Skipping.`)
+  contentProcessor.addToBuffer(section)
+}
+
+function processEmbeddedFragment(
+  referencedFragment: Fragment,
+  section: SlideContent,
+  currentFragment: Fragment,
+  fragmentMap: Map<string, Fragment>,
+  presentationName: string,
+  visitedFragments: Set<string>,
+  inheritedNestingLevel: number,
+  globalContext: GlobalContext,
+  contentProcessor: ContentProcessor
+): void {
+  visitedFragments.add(referencedFragment.relativePath)
+
+  const slideBeforeFragmentRef = contentProcessor.getLastSlideNode()
+  const embeddingLevel = section.childLevel + inheritedNestingLevel
+
+  const embeddedNodes = parseFragmentContent(
+    referencedFragment,
+    fragmentMap,
+    presentationName,
+    visitedFragments,
+    embeddingLevel,
+    globalContext
+  )
+
+  adjustEmbeddedNodeLevels(embeddedNodes, embeddingLevel)
+
+  if (section.childLevel === 0) {
+    applySiblingFragmentNaming(
+      embeddedNodes,
+      slideBeforeFragmentRef,
+      embeddingLevel,
+      presentationName,
+      currentFragment.id,
+      globalContext
+    )
+  }
+
+  updateFragmentOrigin(embeddedNodes, currentFragment.id)
+  contentProcessor.addSlideNodes(embeddedNodes)
+  visitedFragments.delete(referencedFragment.relativePath)
+}
+
+function adjustEmbeddedNodeLevels(embeddedNodes: SlideNode[], embeddingLevel: number): void {
+  embeddedNodes.forEach(node => {
+    const relativeLevel = node.delimiterLevel - embeddingLevel
+    if (relativeLevel > 0) {
+      node.delimiterLevel = embeddingLevel
+    }
+  })
+}
+
+function applySiblingFragmentNaming(
+  embeddedNodes: SlideNode[],
+  slideBeforeFragmentRef: SlideNode | null,
+  embeddingLevel: number,
+  presentationName: string,
+  currentFragmentId: string,
+  globalContext: GlobalContext
+): void {
+  const baseSlideId = slideBeforeFragmentRef ? slideBeforeFragmentRef.id : 'S0'
+
+  const topLevelSlidesCount = embeddedNodes.filter(
+    node => node.delimiterLevel === 0 || node.delimiterLevel === embeddingLevel
+  ).length
+
+  globalContext.globalTopLevelCount -= topLevelSlidesCount
+  applyFragmentSubstitutionNaming(embeddedNodes, baseSlideId, embeddingLevel, presentationName, currentFragmentId)
+}
+
+function updateFragmentOrigin(embeddedNodes: SlideNode[], fragmentId: string): void {
+  embeddedNodes.forEach(node => {
+    node.fragmentId = fragmentId
+  })
 }

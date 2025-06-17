@@ -35,20 +35,18 @@ Apply these rules for all feature implementations to ensure alignment with proje
 - **Accuracy First**: Focus on depth and precision in all responses.
 - **Explain As Needed**: Address the request directly, with additional explanations only if required.
 
-# Code Structure Guidelines
-
 # Coding Guidelines
 
 - Use `function` keyword over `const` for functions.
 - Group modules logically, each doing one thing.
 - Keep functions small and understandable.
 - Avoid nesting > 2 levels (use functions, returns).
-- Keep code DRY.
 - Use immutable objects.
+- **Keep code DRY**: Do not repeat code.
 - **Public Functions First**: Place all exported/public functions at the top of the file.
 - **Helper Functions Last**: Place all helper/utility functions at the bottom of the file.
 - **Function Organization**: Group related functions together for better code organization.
-- Export functions directly on the function.
+- Keep code within an if block small > 10 lines of code.
 
 ```ts
 export async function example() {}
