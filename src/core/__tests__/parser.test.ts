@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import { Fragment, Presentation } from '../../types/presentation'
-import { parse } from '../parser'
+import { parse } from '../parser/index'
 import {
   assertSlideNodes,
   assertSuccessResult,
