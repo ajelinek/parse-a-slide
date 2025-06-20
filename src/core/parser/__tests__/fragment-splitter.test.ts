@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { splitIntoRawSlides } from '../utils'
+import { splitIntoRawSlides } from '../fragment-splitter'
 import { LINE_BREAK, REGEX_LINE_BREAK } from '../../const'
 
 test('should handle content with no delimiters', () => {

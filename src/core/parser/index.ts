@@ -5,6 +5,7 @@ import { SlideNode } from 'slide'
 import { AppError, createError, ErrorCode } from '../../utils/error'
 import { Fragment } from '../../types/presentation'
 import { determineDelimiterLevel } from './utils'
+import { splitIntoRawSlides } from './fragment-splitter'
 
 export function parsePresentation(presentation: Presentation) {
   const entryFragment = presentation.fragments.find(fragment => fragment.isEntry)
