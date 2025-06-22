@@ -1,10 +1,7 @@
-import { ok } from 'assert'
-import { Result, err } from 'neverthrow/dist'
 import { Presentation } from 'presentation'
 import { SlideNode } from 'slide'
-import { AppError, createError, ErrorCode } from '../../utils/error'
 import { Fragment } from '../../types/presentation'
-import { determineDelimiterLevel } from './utils'
+import { createError, err, ErrorCode, ok } from '../../utils/error'
 import { splitIntoRawSlides } from './fragment-splitter'
 
 export function parsePresentation(presentation: Presentation) {

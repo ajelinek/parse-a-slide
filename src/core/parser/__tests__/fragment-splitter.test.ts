@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { splitIntoRawSlides } from '../fragment-splitter'
 import { LINE_BREAK, REGEX_LINE_BREAK } from '../../const'
+import { ErrorCode } from 'src/utils/error'
 
 test('should handle content with no delimiters', () => {
   const s1 = trimIt(`
@@ -12,8 +13,11 @@ test('should handle content with no delimiters', () => {
   const content = buildContent(s1)
   const result = splitIntoRawSlides(content, false)
 
-  expect(result).toHaveLength(1)
-  expect(result).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(1)
+    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  }
 })
 
 test('should handle single delimiter creating one slide', () => {
@@ -25,11 +29,14 @@ test('should handle single delimiter creating one slide', () => {
   const content = buildContent(c1, '---', '')
   const result = splitIntoRawSlides(content)
 
-  expect(result).toHaveLength(2)
-  expect(result).toEqual([
-    { content: c1, childLevel: 0, isFragment: false },
-    { content: '', childLevel: 0, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: c1, childLevel: 0, isFragment: false },
+      { content: '', childLevel: 0, isFragment: false },
+    ])
+  }
 })
 
 test('should handle multiple delimiters creating multiple slides', () => {
@@ -48,12 +55,15 @@ test('should handle multiple delimiters creating multiple slides', () => {
   const content = buildContent(s1, '---', s2, '---', s3)
   const result = splitIntoRawSlides(content)
 
-  expect(result).toHaveLength(3)
-  expect(result).toEqual([
-    { content: s1, childLevel: 0, isFragment: false },
-    { content: s2, childLevel: 0, isFragment: false },
-    { content: s3, childLevel: 0, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(3)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false },
+      { content: s2, childLevel: 0, isFragment: false },
+      { content: s3, childLevel: 0, isFragment: false },
+    ])
+  }
 })
 
 test('should handle nested delimiters with different levels', () => {
@@ -75,36 +85,42 @@ test('should handle nested delimiters with different levels', () => {
   `)
   const content = buildContent(s1, '---', s2, '--->', s3, '--->>', s4)
   const result = splitIntoRawSlides(content)
-  console.log('🚀 ~ test ~ content:', content)
-  console.log('🚀 ~ test ~ result:', result)
 
-  expect(result).toHaveLength(4)
-  expect(result).toEqual([
-    { content: s1, childLevel: 0, isFragment: false },
-    { content: s2, childLevel: 0, isFragment: false },
-    { content: s3, childLevel: 1, isFragment: false },
-    { content: s4, childLevel: 2, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(4)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false },
+      { content: s2, childLevel: 0, isFragment: false },
+      { content: s3, childLevel: 1, isFragment: false },
+      { content: s4, childLevel: 2, isFragment: false },
+    ])
+  }
 })
 
 test('should handle empty content', () => {
   const content = ''
   const result = splitIntoRawSlides(content)
-  expect(result).toEqual([{ content: '', childLevel: 0, isFragment: false }])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toEqual([{ content: '', childLevel: 0, isFragment: false }])
+  }
 })
 
 test('should handle content with only delimiters', () => {
   const content = '\n    ---\n    --->\n    ---\n'
   const result = splitIntoRawSlides(content)
-  console.log('🚀 ~ test ~ result:', result)
 
-  expect(result).toHaveLength(4)
-  expect(result).toEqual([
-    { content: '', childLevel: 0, isFragment: false },
-    { content: '', childLevel: 0, isFragment: false },
-    { content: '', childLevel: 1, isFragment: false },
-    { content: '', childLevel: 0, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(4)
+    expect(result.value).toEqual([
+      { content: '', childLevel: 0, isFragment: false },
+      { content: '', childLevel: 0, isFragment: false },
+      { content: '', childLevel: 1, isFragment: false },
+      { content: '', childLevel: 0, isFragment: false },
+    ])
+  }
 })
 
 test('should handle delimiters with whitespace', () => {
@@ -115,8 +131,11 @@ test('should handle delimiters with whitespace', () => {
   const content = buildContent(s1, '   ---   ')
   const result = splitIntoRawSlides(content)
 
-  expect(result).toHaveLength(1)
-  expect(result).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(1)
+    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  }
 })
 
 test('should handle consecutive delimiters creating empty slides', () => {
@@ -126,11 +145,14 @@ test('should handle consecutive delimiters creating empty slides', () => {
   const content = buildContent(s1, '---', '---')
   const result = splitIntoRawSlides(content)
 
-  expect(result).toHaveLength(2)
-  expect(result).toEqual([
-    { content: s1, childLevel: 0, isFragment: false },
-    { content: '', childLevel: 0, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false },
+      { content: '', childLevel: 0, isFragment: false },
+    ])
+  }
 })
 
 test('should respect isFragment parameter when true', () => {
@@ -141,8 +163,11 @@ test('should respect isFragment parameter when true', () => {
   const content = buildContent(s1, '---')
   const result = splitIntoRawSlides(content, true)
 
-  expect(result).toHaveLength(1)
-  expect(result).toEqual([{ content: s1, childLevel: 0, isFragment: true }])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(1)
+    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: true }])
+  }
 })
 
 test('should respect isFragment parameter when false', () => {
@@ -153,8 +178,11 @@ test('should respect isFragment parameter when false', () => {
   const content = buildContent(s1, '---')
   const result = splitIntoRawSlides(content, false)
 
-  expect(result).toHaveLength(1)
-  expect(result).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(1)
+    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: false }])
+  }
 })
 
 test('splitIntoRawSlides should handle mixed delimiter levels correctly', () => {
@@ -174,16 +202,28 @@ test('splitIntoRawSlides should handle mixed delimiter levels correctly', () => 
     # Level 2
     Content 2
   `)
-  const content = buildContent(s1, '--->', s2, '---', s3, '--->>', s4)
+  const content = buildContent(s1, '--->', s2, '---', s3, '--->', s4)
   const result = splitIntoRawSlides(content)
 
-  expect(result).toHaveLength(4)
-  expect(result).toEqual([
-    { content: s1, childLevel: 0, isFragment: false },
-    { content: s2, childLevel: 1, isFragment: false },
-    { content: s3, childLevel: 0, isFragment: false },
-    { content: s4, childLevel: 2, isFragment: false },
-  ])
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(4)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false },
+      { content: s2, childLevel: 1, isFragment: false },
+      { content: s3, childLevel: 0, isFragment: false },
+      { content: s4, childLevel: 1, isFragment: false },
+    ])
+  }
+})
+
+test('splitIntoRawSlides should handle invalid delimiter sequence', () => {
+  const content = buildContent('---', '--->>')
+  const result = splitIntoRawSlides(content)
+  expect(result.isErr()).toBe(true)
+  if (result.isErr()) {
+    expect(result.error.code).toBe(ErrorCode.INVALID_DELIMITER_SEQUENCE)
+  }
 })
 
 function trimIt(content: string): string {

@@ -1,5 +1,6 @@
-import { REGEX_DELIMITER, REGEX_LINE_BREAK } from '../const'
-import { determineDelimiterLevel } from './utils'
+import { ErrorCode, PasResult, createError, err, ok } from '../../utils/error'
+import { REGEX_LINE_BREAK } from '../const'
+import { determineDelimiterLevel } from './parser-utils'
 
 export type RawSlide = {
   content: string
@@ -7,7 +8,7 @@ export type RawSlide = {
   isFragment: boolean
 }
 
-export function splitIntoRawSlides(content: string, isFragment = false): RawSlide[] {
+export function splitIntoRawSlides(content: string, isFragment = false): PasResult<RawSlide[]> {
   const splitContent: RawSlide[] = []
   const lines = content.split(REGEX_LINE_BREAK)
   const buffer: string[] = []
@@ -15,7 +16,9 @@ export function splitIntoRawSlides(content: string, isFragment = false): RawSlid
 
   for (const line of lines) {
     const level = determineDelimiterLevel(line)
-    console.log('🚀 ~ splitIntoRawSlides ~ level:', { level, holdLevel, line })
+    if (!isValidLevelIncrease(level, holdLevel)) {
+      return err(createError(`Invalid nesting increase: cannot skip levels`, ErrorCode.INVALID_DELIMITER_SEQUENCE))
+    }
 
     if (level >= 0) {
       flushBuffer()
@@ -26,16 +29,19 @@ export function splitIntoRawSlides(content: string, isFragment = false): RawSlid
   }
 
   if (buffer.length > 0) flushBuffer()
-  return splitContent
+  return ok(splitContent)
 
   /** Utility Functions */
   function flushBuffer() {
-    console.log('🚀 ~ flushBuffer ~ buffer:', buffer)
     splitContent.push({
       content: buffer.join('\r\n'),
       childLevel: holdLevel,
       isFragment,
     })
     buffer.length = 0
+  }
+
+  function isValidLevelIncrease(level: number, holdLevel: number): boolean {
+    return !(level > holdLevel + 1)
   }
 }

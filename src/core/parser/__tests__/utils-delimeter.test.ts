@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { determineDelimiterLevel } from '../utils'
+import { determineDelimiterLevel } from '../parser-utils'
 
 test('returns -1 for non-matching lines', () => {
   expect(determineDelimiterLevel('hello')).toBe(-1)

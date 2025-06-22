@@ -1,7 +1,7 @@
 import path from 'path'
 import { nanoid } from 'nanoid'
 import { Result } from 'neverthrow'
-import { PasResult, ok, err, createError, ErrorCode, AppError } from '../utils/error'
+import { PasAsyncResult, ok, err, createError, ErrorCode, AppError } from '../utils/error'
 import { findFiles, pathExists, readFile } from '../utils/fs-utils'
 import { PresentationMetadata, FragmentMetadata, Fragment } from '../types/presentation'
 
@@ -18,14 +18,14 @@ interface DirectoryPresFiles {
  * @param inputDir Path to the directory to search for presentations
  * @returns A PasResult containing an array of PresentationMetadata objects or an error
  */
-export async function discoverPresentations(inputDir: string): PasResult<PresentationMetadata[]> {
+export async function discoverPresentations(inputDir: string): PasAsyncResult<PresentationMetadata[]> {
   // First check if the input directory exists
   const dirExistsResult = await pathExists(inputDir)
-  
+
   if (dirExistsResult.isErr()) {
     return err(dirExistsResult.error)
   }
-  
+
   if (!dirExistsResult.value) {
     return err(createError(`Directory not found: ${inputDir}`, ErrorCode.DIRECTORY_NOT_FOUND))
   }
@@ -39,51 +39,55 @@ export async function discoverPresentations(inputDir: string): PasResult<Present
   const indexFiles = indexFilesResult.value
   const presentations: PresentationMetadata[] = []
   const errors: string[] = []
-  
+
   // Step 2: For each index file, create a presentation and find its fragments
   for (const indexFile of indexFiles) {
     const presentationDir = path.dirname(indexFile)
     const extension = path.extname(indexFile)
     const format = extension === '.md' ? 'md' : 'mdx'
-    
+
     // Step 3: Find all fragments in the same directory and subdirectories
     const fragmentGlob = path.join(presentationDir, '**/*.pres.{md,mdx}')
     const fragmentsResult = await findFiles(fragmentGlob, inputDir)
     if (fragmentsResult.isErr()) {
       return err(fragmentsResult.error)
     }
-    
+
     // Validate that there are no conflicting index files in subdirectories
     const subdirIndexFiles = fragmentsResult.value
       .filter(file => path.basename(file) === 'index.pres.md' || path.basename(file) === 'index.pres.mdx')
       .filter(file => file !== indexFile)
-    
+
     if (subdirIndexFiles.length > 0) {
-      errors.push(`Nested index files found under presentation at ${presentationDir}. Nested index files: ${subdirIndexFiles.join(', ')}`)
+      errors.push(
+        `Nested index files found under presentation at ${presentationDir}. Nested index files: ${subdirIndexFiles.join(
+          ', '
+        )}`
+      )
       continue
     }
-    
+
     // Create the presentation metadata
     const presentation = createPresentationMetadata(presentationDir, {
       indexFile,
       fragmentFiles: fragmentsResult.value,
-      format: format as 'md' | 'mdx'
+      format: format as 'md' | 'mdx',
     })
-    
+
     presentations.push(presentation)
   }
-  
+
   // If there were any errors, return the first one
   if (errors.length > 0) {
     return err(createError(errors[0], ErrorCode.NESTED_INDEX_FILES))
   }
-  
+
   return ok(presentations)
 }
 
 /**
  * Creates metadata for a presentation from validated files
- * 
+ *
  * @param dir Directory path
  * @param files Validated directory contents
  * @returns PresentationMetadata object
@@ -92,11 +96,11 @@ function createPresentationMetadata(dir: string, files: DirectoryPresFiles): Pre
   const presentationId = nanoid()
   const entryId = nanoid()
   const indexFile = files.indexFile
-  
+
   // Determine presentation name from directory
   const name = path.basename(dir) || 'root'
   const extension = files.format === 'md' ? '.pres.md' : '.pres.mdx'
-  
+
   // Create fragment metadata for each file
   const fragments: FragmentMetadata[] = files.fragmentFiles.map(file => {
     const isEntry = file === indexFile
@@ -130,32 +134,32 @@ function createPresentationMetadata(dir: string, files: DirectoryPresFiles): Pre
 
 /**
  * Inflates fragment metadata with content from the filesystem.
- * 
+ *
  * @param fragmentMetadatas Array of FragmentMetadata objects to inflate
  * @returns A PasResult containing an array of Fragment objects or an error
  */
-export async function inflateFragments(fragmentMetadatas: FragmentMetadata[]): PasResult<Fragment[]> {
+export async function inflateFragments(fragmentMetadatas: FragmentMetadata[]): PasAsyncResult<Fragment[]> {
   // If input array is empty, return an empty array result
   if (fragmentMetadatas.length === 0) {
-    return ok([]);
+    return ok([])
   }
-  
-  const inflatedFragments: Fragment[] = [];
-  
+
+  const inflatedFragments: Fragment[] = []
+
   // Process each fragment metadata
   for (const fragmentMeta of fragmentMetadatas) {
-    const contentResult = await readFile(fragmentMeta.fullPath);
-    
+    const contentResult = await readFile(fragmentMeta.fullPath)
+
     // If any file read fails, return the error immediately
     if (contentResult.isErr()) {
-      return err(contentResult.error);
+      return err(contentResult.error)
     }
-    
+
     inflatedFragments.push({
       ...fragmentMeta,
       content: contentResult.value,
-    });
+    })
   }
-  
-  return ok(inflatedFragments);
+
+  return ok(inflatedFragments)
 }
