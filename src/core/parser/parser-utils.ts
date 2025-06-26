@@ -8,8 +8,13 @@ export function determineDelimiterLevel(line: string): number {
   return match[1].length
 }
 
+/**
+ * Checks if a string is an embedded fragment reference
+ * @param content The content to check
+ * @returns True if content is an embedded fragment reference
+ */
 export function isEmbeddedFragment(content: string): boolean {
-  return content.trim().match(REGEX_FRAGMENT_REF) !== null
+  return getFragmentMatch(content) !== null
 }
 
 /**
@@ -18,11 +23,20 @@ export function isEmbeddedFragment(content: string): boolean {
  * @returns The extracted file path or null if no match is found
  */
 export function extractFragmentPath(content: string): string | null {
-  const match = content.trim().match(REGEX_FRAGMENT_REF)
+  const match = getFragmentMatch(content)
   if (!match || !match[2]) {
     return null
   }
   
   // The second capturing group contains the URL/path
   return match[2]
+}
+
+/**
+ * Private helper function to match fragment references
+ * @param content The content to check for fragment references
+ * @returns The regex match result or null if no match found
+ */
+function getFragmentMatch(content: string): RegExpMatchArray | null {
+  return content.trim().match(REGEX_FRAGMENT_REF)
 }
