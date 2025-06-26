@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { splitIntoRawSlides } from '../fragment-splitter'
 import { LINE_BREAK, REGEX_LINE_BREAK } from '../../const'
-import { ErrorCode } from 'src/utils/error'
+import { ErrorCode } from '../../../utils/error'
 
 test('should handle content with no delimiters', () => {
   const s1 = trimIt(`
