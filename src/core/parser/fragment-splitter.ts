@@ -6,9 +6,10 @@ export type RawSlide = {
   content: string
   childLevel: number
   isFragment: boolean
+  path: string
 }
 
-export function splitIntoRawSlides(content: string, isFragment = false): PasResult<RawSlide[]> {
+export function splitIntoRawSlides(content: string, path = '', isFragment = false): PasResult<RawSlide[]> {
   const splitContent: RawSlide[] = []
   const lines = content.split(REGEX_LINE_BREAK)
   const buffer: string[] = []
@@ -37,6 +38,7 @@ export function splitIntoRawSlides(content: string, isFragment = false): PasResu
       content: buffer.join('\r\n'),
       childLevel: holdLevel,
       isFragment,
+      path,
     })
     buffer.length = 0
   }

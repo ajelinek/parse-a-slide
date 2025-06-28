@@ -19,8 +19,7 @@ export interface SlideNode {
   appearance?: SlideAppearance
   content: string
   assets?: Asset[]
-  fragmentId: string // ID of the fragment this slide originated from
-  delimiterLevel: number // Indicates the nesting level of the slide (0 for top-level, 1 for first child, etc.)
+  fragmentPath: string // ID of the fragment this slide originated from
 }
 
 /**
