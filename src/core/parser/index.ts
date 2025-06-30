@@ -5,6 +5,7 @@ import { createError, err, ErrorCode, ok } from '../../utils/error'
 import { RawSlide, splitIntoRawSlides } from './fragment-splitter'
 import { extractFragmentPath, isEmbeddedFragment } from './parser-utils'
 import { Logger } from '../../utils/logger'
+import { SlideNodeBuilder } from './slide-node-builder'
 
 export function parsePresentation(presentation: Presentation) {
   const lg = Logger.getInstance()
@@ -19,7 +20,7 @@ export function parsePresentation(presentation: Presentation) {
     fragmentMap.set(fragment.relativePath, fragment)
   })
 
-  const slideNodes: SlideNode[] = []
+  const slideNodeBuilder = new SlideNodeBuilder()
   const rawSlides = splitIntoRawSlides(entryFragment.content, entryFragment.relativePath)
 
   if (!rawSlides.isOk()) return rawSlides
@@ -37,11 +38,11 @@ export function parsePresentation(presentation: Presentation) {
         index--
       }
     } else {
-      slideNodes.push(buildSlideNode(rawSlide, slideNodes))
+      slideNodeBuilder.addSlideNode(rawSlide)
     }
   }
 
-  return ok(slideNodes)
+  return ok(slideNodeBuilder.getSlideNodes())
 }
 
 function getEmbeddedFragmentSlides(rawSlide: RawSlide, fragmentMap: Map<string, Fragment>) {
@@ -57,19 +58,4 @@ function getEmbeddedFragmentSlides(rawSlide: RawSlide, fragmentMap: Map<string, 
   }
 }
 
-function buildSlideNode(rawSlide: RawSlide, slideNodes: SlideNode[]) {
-  const slideNode: SlideNode = {
-    id: `s${slideNodes.length + 1}`,
-    url: '',
-    navigation: {
-      childSlideId: null,
-      parentSlideId: null,
-      nextSlideId: null,
-      previousSlideId: null,
-    },
-    content: rawSlide.content,
-    fragmentPath: rawSlide.path,
-  }
-  slideNodes.push(slideNode)
-  return slideNode
-}
+
