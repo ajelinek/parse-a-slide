@@ -163,36 +163,24 @@ test('should connect siblings with next/previous references', () => {
 
 test('should handle complex hierarchy with siblings at multiple levels', () => {
   const rawSlides = [
-    createRawSlide('Root', 0),
-    createRawSlide('A1', 1),
-    createRawSlide('B1', 2),
-    createRawSlide('B2', 2),
-    createRawSlide('A2', 1),
+    createRawSlide('S1', 0),
+    createRawSlide('S2', 1),
+    createRawSlide('S3', 2),
+    createRawSlide('S4', 2),
+    createRawSlide('S5', 1),
   ]
   const { builder } = setUp(rawSlides)
   const slides = builder.getSlideNodes()
 
-  // First, let's log the actual slide structure for debugging
-  console.log('Actual slide order:')
-  slides.forEach((s, i) => console.log(`slides[${i}].id = ${s.id}`))
-
-  // Select slides in the correct order to match our table structure
-  const orderedSlides = [
-    slides[1], // A1 (s2)
-    slides[4], // A2 (s5)
-    slides[2], // B1 (s3)
-    slides[3], // B2 (s4)
-  ]
-
   const structureTable = `
     | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -- | ------------- | ------------ | --------------- | ----------- |
+    | s1 | null          | s2           | null            | null        |
     | s2 | s1            | s3           | null            | s5          |
-    | s5 | s1            | null         | s2              | null        |
     | s3 | s2            | null         | null            | s4          |
     | s4 | s2            | null         | s3              | null        |
+    | s5 | s1            | null         | s2              | null        |
   `
 
-  // Verify connections between A1, A2, B1, B2 using the ordered selection
-  verifySlideStructure(orderedSlides, structureTable)
+  verifySlideStructure(slides, structureTable)
 })

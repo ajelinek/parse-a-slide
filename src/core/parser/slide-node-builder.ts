@@ -1,4 +1,4 @@
-import { SlideNode, SlideNavigation } from '../../types/slide'
+import { SlideNode } from '../../types/slide'
 import { RawSlide } from './fragment-splitter'
 
 /**
@@ -7,12 +7,14 @@ import { RawSlide } from './fragment-splitter'
  */
 export class SlideNodeBuilder {
   private slideNodes: SlideNode[] = []
-  private parentStack: { level: number; node: SlideNode }[] = []
+  private parentStack: SlideNode[] = [] // Index represents the level
+  private maxDepthReached = 0
 
   public addSlideNode(rawSlide: RawSlide): SlideNode {
     const slideNode = this.buildSlideNode(rawSlide)
+    this.updateNavigationReferences(slideNode, rawSlide.childLevel)
     this.updateParentStack(rawSlide.childLevel, slideNode)
-    this.updateNavigationReferences(slideNode)
+    this.maxDepthReached = Math.max(this.maxDepthReached, rawSlide.childLevel)
     return slideNode
   }
 
@@ -52,46 +54,41 @@ export class SlideNodeBuilder {
   }
 
   /**
-   * Updates the parent stack based on the level of the current slide
+   * Updates navigation references before updating the parent stack
    */
-  private updateParentStack(level: number, currentNode: SlideNode): void {
-    // Remove any items from the stack that are at a higher or equal level
-    while (this.parentStack.length > 0 && this.parentStack[this.parentStack.length - 1].level >= level) {
-      this.parentStack.pop()
-    }
-
-    // If there's a parent in the stack, update the navigation references
-    if (this.parentStack.length > 0) {
-      const parent = this.parentStack[this.parentStack.length - 1].node
+  private updateNavigationReferences(currentNode: SlideNode, level: number): void {
+    // Set parent relationship if there's a parent at the previous level
+    if (level > 0 && this.parentStack[level - 1]) {
+      const parent = this.parentStack[level - 1]
       currentNode.navigation.parentSlideId = parent.id
 
-      // If the parent doesn't have a child yet, set this as the child
+      // If parent doesn't have a child yet, set this as the child
       if (parent.navigation.childSlideId === null) {
         parent.navigation.childSlideId = currentNode.id
       }
     }
 
-    // Add the current node to the parent stack
-    this.parentStack.push({ level, node: currentNode })
+    // Connect to previous sibling if one exists at this level
+    if (this.parentStack[level]) {
+      const previousSibling = this.parentStack[level]
+      currentNode.navigation.previousSlideId = previousSibling.id
+
+      // Only connect back if we haven't gone too deep since the previous sibling
+      const depthSincePrevious = this.maxDepthReached - level
+      if (depthSincePrevious <= 1) {
+        previousSibling.navigation.nextSlideId = currentNode.id
+      }
+    }
   }
 
   /**
-   * Updates navigation references (previous/next) for the current slide
+   * Updates the parent stack to track the most recent slide at each level
    */
-  private updateNavigationReferences(currentNode: SlideNode): void {
-    // Find siblings (nodes with the same parent)
-    const siblings = this.slideNodes.filter(
-      node => node.navigation.parentSlideId === currentNode.navigation.parentSlideId && node.id !== currentNode.id
-    )
+  private updateParentStack(level: number, currentNode: SlideNode): void {
+    // Truncate the stack to the current level (removes deeper levels)
+    this.parentStack.length = level
 
-    // Find the most recent sibling (which should be the previous slide)
-    const previousSibling = siblings.length > 0 ? siblings[siblings.length - 1] : null
-
-    if (previousSibling) {
-      // Update the previous slide's next reference
-      previousSibling.navigation.nextSlideId = currentNode.id
-      // Update the current slide's previous reference
-      currentNode.navigation.previousSlideId = previousSibling.id
-    }
+    // Add current node as the most recent slide at this level
+    this.parentStack[level] = currentNode
   }
 }
