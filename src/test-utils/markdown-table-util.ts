@@ -11,8 +11,6 @@
  */
 export function parseMarkdownTable<T extends Record<string, string>>(markdownTable: string): T[] {
   // Debug the raw input
-  console.log('\n--- DEBUG parseMarkdownTable ---')
-  console.log('Raw markdown table input:', JSON.stringify(markdownTable))
 
   // Split into lines and clean them up
   const lines = markdownTable
@@ -21,26 +19,18 @@ export function parseMarkdownTable<T extends Record<string, string>>(markdownTab
     .map(line => line.trim())
     .filter(Boolean)
 
-  console.log('Lines after split/trim:', lines.length)
-  console.log('Lines content:', JSON.stringify(lines))
-
   if (lines.length < 3) {
-    console.log('Not enough lines, returning empty array')
     return []
   }
 
   // Extract header row (first row)
   const headerRow = lines[0]
-  console.log('Header row:', JSON.stringify(headerRow))
 
   // Skip separator row (second row)
   const separatorRow = lines[1]
-  console.log('Separator row:', JSON.stringify(separatorRow))
 
   // Process data rows (third row onward)
   const dataRows = lines.slice(2)
-  console.log('Data rows count:', dataRows.length)
-  console.log('Data rows:', JSON.stringify(dataRows))
 
   // Extract header cells
   const headers = headerRow
@@ -48,36 +38,24 @@ export function parseMarkdownTable<T extends Record<string, string>>(markdownTab
     .map(cell => cell.trim())
     .filter(Boolean)
 
-  console.log('Extracted headers:', JSON.stringify(headers))
-
   // Process data rows
   const results = dataRows.map((row, rowIndex) => {
-    console.log(`Processing row ${rowIndex}:`, JSON.stringify(row))
-
     const cells = row
       .split('|')
       .map(cell => cell.trim())
       .filter((_, index) => index > 0 && index <= headers.length)
 
-    console.log(`Row ${rowIndex} cells:`, JSON.stringify(cells))
-
     const result = {} as Record<string, string>
     headers.forEach((header, i) => {
       if (cells[i] !== undefined) {
         result[header] = cells[i]
-        console.log(`Set ${header} =`, JSON.stringify(cells[i]))
       } else {
         result[header] = ''
-        console.log(`Set ${header} = '' (empty)`)
       }
     })
 
-    console.log(`Row ${rowIndex} result:`, result)
     return result as T
   })
-
-  console.log('Final results count:', results.length)
-  console.log('--- END DEBUG parseMarkdownTable ---\n')
 
   return results
 }
