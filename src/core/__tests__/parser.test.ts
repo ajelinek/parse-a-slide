@@ -340,11 +340,19 @@ test('parse should handle referenced fragment not found with warning', () => {
   // Mock Logger.getInstance().info to capture the warning message
   const loggerInfoSpy = vi.spyOn(Logger.getInstance(), 'info').mockImplementation(() => {})
 
+  // Define raw slide content for input
+  const S1 = `
+    # Slide 1
+  `
+  const S2 = `
+    [Link To Missing](./nonexistent.pres.md)
+  `
+
   // Arrange
   const { presentation } = setUp(`
-    # Slide 1
+    ${S1}
     ---
-    [Link To Missing](./nonexistent.pres.md)
+    ${S2}
   `)
 
   // Act
@@ -353,10 +361,20 @@ test('parse should handle referenced fragment not found with warning', () => {
 
   // Assert - Two slides are created: one for "# Slide 1" and one for the missing fragment reference
   expect(slideNodes).toHaveLength(2)
-  expect(slideNodes[0].id).toBe('S1')
-  expect(slideNodes[0].content).toContain('# Slide 1')
-  expect(slideNodes[1].id).toBe('S2')
-  expect(slideNodes[1].content).toContain('[Link To Missing](./nonexistent.pres.md)')
+
+  // Define structure and navigation using a table
+  const structureTable = `
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | null        |
+  `
+
+  // Generate test data with content and expected structure
+  const { expectedSlides } = createTestData({ S1, S2 }, structureTable)
+
+  // Assert that parser output matches our expectations
+  assertSlideNodes(slideNodes, expectedSlides)
 
   // Verify logger.info was called with the correct message
   expect(loggerInfoSpy).toHaveBeenCalledWith('Fragment reference ./nonexistent.pres.md not found')
@@ -412,7 +430,7 @@ test('parse should handle navigating correctly after "popping" up multiple nesti
     ${S1}
     --->
     ${S1C1}
-    -->>
+    --->>
     ${S1C1C1}
     ---
     ${S2}
@@ -495,6 +513,7 @@ test('parse should handle a presentation ending with a delimiter creating an emp
   const { presentation } = setUp(`
     ${S1}
     ---
+
   `)
 
   // Act

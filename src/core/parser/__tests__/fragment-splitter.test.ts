@@ -140,8 +140,11 @@ test('should handle delimiters with whitespace', () => {
 
   expect(result.isOk()).toBe(true)
   if (result.isOk()) {
-    expect(result.value).toHaveLength(1)
-    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: false, path }])
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false, path },
+      { content: '', childLevel: 0, isFragment: false, path },
+    ])
   }
 })
 
@@ -155,9 +158,10 @@ test('should handle consecutive delimiters creating empty slides', () => {
 
   expect(result.isOk()).toBe(true)
   if (result.isOk()) {
-    expect(result.value).toHaveLength(2)
+    expect(result.value).toHaveLength(3)
     expect(result.value).toEqual([
       { content: s1, childLevel: 0, isFragment: false, path },
+      { content: '', childLevel: 0, isFragment: false, path },
       { content: '', childLevel: 0, isFragment: false, path },
     ])
   }
@@ -174,8 +178,11 @@ test('should respect isFragment parameter when true', () => {
 
   expect(result.isOk()).toBe(true)
   if (result.isOk()) {
-    expect(result.value).toHaveLength(1)
-    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: true, path }])
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: true, path },
+      { content: '', childLevel: 0, isFragment: true, path },
+    ])
   }
 })
 
@@ -190,8 +197,11 @@ test('should respect isFragment parameter when false', () => {
 
   expect(result.isOk()).toBe(true)
   if (result.isOk()) {
-    expect(result.value).toHaveLength(1)
-    expect(result.value).toEqual([{ content: s1, childLevel: 0, isFragment: false, path }])
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false, path },
+      { content: '', childLevel: 0, isFragment: false, path },
+    ])
   }
 })
 
@@ -235,6 +245,26 @@ test('splitIntoRawSlides should handle invalid delimiter sequence', () => {
   expect(result.isErr()).toBe(true)
   if (result.isErr()) {
     expect(result.error.code).toBe(ErrorCode.INVALID_DELIMITER_SEQUENCE)
+  }
+})
+
+test('should handle a presentation ending with a delimiter creating an empty slide', () => {
+  const path = 'slides/ending-with-delimiter.pres.md'
+  const s1 = trimIt(`
+    # Slide 1
+  `)
+
+  // Content ends with a delimiter - fragment-splitter automatically creates empty slide
+  const content = buildContent(s1, '---')
+  const result = splitIntoRawSlides(content, path, false)
+
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value).toHaveLength(2)
+    expect(result.value).toEqual([
+      { content: s1, childLevel: 0, isFragment: false, path },
+      { content: '', childLevel: 0, isFragment: false, path },
+    ])
   }
 })
 

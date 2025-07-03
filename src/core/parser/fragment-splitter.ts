@@ -14,6 +14,7 @@ export function splitIntoRawSlides(content: string, path = '', isFragment = fals
   const lines = content.split(REGEX_LINE_BREAK)
   const buffer: string[] = []
   let holdLevel = 0
+  let lastLine = ''
 
   for (const line of lines) {
     const level = determineDelimiterLevel(line)
@@ -27,9 +28,12 @@ export function splitIntoRawSlides(content: string, path = '', isFragment = fals
     } else {
       buffer.push(line)
     }
+
+    lastLine = line
   }
 
   if (buffer.length > 0) flushBuffer()
+  if (determineDelimiterLevel(lastLine) >= 0) flushBuffer()
   return ok(splitContent)
 
   /** Utility Functions */
