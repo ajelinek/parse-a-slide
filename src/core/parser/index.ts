@@ -58,4 +58,5 @@ function getEmbeddedFragmentSlides(rawSlide: RawSlide, fragmentMap: Map<string, 
   }
 }
 
-
+// Export alias for backward compatibility
+export const parse = parsePresentation

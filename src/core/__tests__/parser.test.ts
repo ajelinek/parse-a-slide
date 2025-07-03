@@ -46,11 +46,11 @@ test('parse should handle a single slide from an entry fragment', () => {
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Define structure and navigation using a table (no content column)
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | null        | 0              |
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | null        |
   `
 
   // Generate test data with content and expected structure
@@ -85,13 +85,13 @@ test('parse should handle multiple top-level sibling slides', () => {
   const result = parse(presentation)
   const slideNodes = assertSuccessResult(result)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | S2          | 0              |
-    | S2 | null          | null         | S1              | S3          | 0              |
-    | S3 | null          | null         | S2              | null        | 0              |
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | S3          |
+    | S3 | null          | null         | S2              | null        |
   `
 
   // Generate test data with content and expected structure
@@ -124,12 +124,12 @@ test('parse should handle a parent slide with one child', () => {
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(2)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | ---- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1   | null          | S1C1         | null            | null        | 0              |
-    | S1C1 | S1            | null         | null            | null        | 1              |
+    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | ---- | ------------- | ------------ | --------------- | ----------- |
+    | S1   | null          | S1C1         | null            | null        |
+    | S1C1 | S1            | null         | null            | null        |
   `
 
   // Generate test data with content and expected structure
@@ -172,14 +172,14 @@ test('parse should handle multi-level child slides', () => {
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(4)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1       | null          | S1C1         | null            | S2          | 0              |
-    | S1C1     | S1            | S1C1C1       | null            | S2          | 1              |
-    | S1C1C1   | S1C1          | null         | null            | S2          | 2              |
-    | S2       | null          | null         | S1              | null        | 0              |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -------- | ------------- | ------------ | --------------- | ----------- |
+    | S1       | null          | S1C1         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | S2          |
+    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S2       | null          | null         | S1              | null        |
   `
 
   // Generate test data with content and expected structure
@@ -213,13 +213,13 @@ test('parse should handle empty intermediate slide', () => {
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(3)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | S2          | 0              |
-    | S2 | null          | null         | S1              | S3          | 0              |
-    | S3 | null          | null         | S2              | null        | 0              |
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | S3          |
+    | S3 | null          | null         | S2              | null        |
   `
 
   // Generate test data with content and expected structure
@@ -269,14 +269,14 @@ test('parse should handle last childs next slide linking to parents next slide',
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(4)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1       | null          | S1C1         | null            | S2          | 0              |
-    | S1C1     | S1            | S1C1C1       | null            | S2          | 1              |
-    | S1C1C1   | S1C1          | null         | null            | S2          | 2              |
-    | S2       | null          | null         | S1              | null        | 0              |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -------- | ------------- | ------------ | --------------- | ----------- |
+    | S1       | null          | S1C1         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | S2          |
+    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S2       | null          | null         | S1              | null        |
   `
 
   // Generate test data with content and expected structure
@@ -426,15 +426,15 @@ test('parse should handle navigating correctly after "popping" up multiple nesti
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(5)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -------- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1       | null          | S1C1         | null            | S2          | 0              |
-    | S1C1     | S1            | S1C1C1       | null            | S2          | 1              |
-    | S1C1C1   | S1C1          | null         | null            | S2          | 2              |
-    | S2       | null          | S2C1         | S1              | null        | 0              |
-    | S2C1     | S2            | null         | null            | null        | 1              |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -------- | ------------- | ------------ | --------------- | ----------- |
+    | S1       | null          | S1C1         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | S2          |
+    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S2       | null          | S2C1         | S1              | null        |
+    | S2C1     | S2            | null         | null            | null        |
   `
 
   // Generate test data with content and expected structure
@@ -469,12 +469,12 @@ test('parse should handle delimiters with surrounding whitespace correctly', () 
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(2)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | S2          | 0              |
-    | S2 | null          | null         | S1              | null        | 0              |
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | null        |
   `
 
   // Generate test data with content and expected structure
@@ -503,12 +503,12 @@ test('parse should handle a presentation ending with a delimiter creating an emp
   // Verify we have the expected number of slides
   expect(slideNodes).toHaveLength(2)
 
-  // Define structure and navigation using a table
+  // Define structure and navigation using a table (no delimiterLevel column)
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId | delimiterLevel |
-    | -- | ------------- | ------------ | --------------- | ----------- | -------------- |
-    | S1 | null          | null         | null            | S2          | 0              |
-    | S2 | null          | null         | S1              | null        | 0              |
+    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -- | ------------- | ------------ | --------------- | ----------- |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | null        |
   `
 
   // Generate test data with content and expected structure

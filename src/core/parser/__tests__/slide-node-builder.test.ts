@@ -65,7 +65,7 @@ test('should create slide node with correct ID', () => {
 
   const slide = builder.addSlideNode(createRawSlide('Slide content', 0))
 
-  expect(slide.id).toBe('s1')
+  expect(slide.id).toBe('S1')
   expect(slide.content).toBe('Slide content')
   expect(slide.fragmentPath).toBe('test.pres.md')
   expect(slide.navigation.parentSlideId).toBeNull()
@@ -84,8 +84,8 @@ test('should create multiple slide nodes with sequential IDs', () => {
   const structureTable = `
     | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -- | ------------- | ------------ | --------------- | ----------- |
-    | s1 | null          | null         | null            | s2          |
-    | s2 | null          | null         | s1              | null        |
+    | S1 | null          | null         | null            | S2          |
+    | S2 | null          | null         | S1              | null        |
   `
 
   verifySlideStructure(slides, structureTable)
@@ -97,10 +97,10 @@ test('should establish parent-child relationships based on childLevel', () => {
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | -- | ------------- | ------------ | --------------- | ----------- |
-    | s1 | null          | s2           | null            | null        |
-    | s2 | s1            | null         | null            | null        |
+    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | ---- | ------------- | ------------ | --------------- | ----------- |
+    | S1   | null          | S1C1         | null            | null        |
+    | S1C1 | S1            | null         | null            | null        |
   `
 
   verifySlideStructure(slides, structureTable)
@@ -112,11 +112,11 @@ test('should handle multiple levels of nesting', () => {
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | -- | ------------- | ------------ | --------------- | ----------- |
-    | s1 | null          | s2           | null            | null        |
-    | s2 | s1            | s3           | null            | null        |
-    | s3 | s2            | null         | null            | null        |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -------- | ------------- | ------------ | --------------- | ----------- |
+    | S1       | null          | S1C1         | null            | null        |
+    | S1C1     | S1            | S1C1C1       | null            | null        |
+    | S1C1C1   | S1C1          | null         | null            | null        |
   `
 
   verifySlideStructure(slides, structureTable)
@@ -133,15 +133,14 @@ test('should reset parent stack when going back to a lower level', () => {
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | -- | ------------- | ------------ | --------------- | ----------- |
-    | s1 | null          | s2           | null            | null        |
-    | s2 | s1            | s3           | null            | null        |
-    | s3 | s2            | null         | null            | null        |
-    | s4 | null          | null         | s1              | null        |
+    | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | -------- | ------------- | ------------ | --------------- | ----------- |
+    | S1       | null          | S1C1         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | S2          |
+    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S2       | null          | null         | S1              | null        |
   `
 
-  // Only verify the last slide which is the one going back to a lower level
   verifySlideStructure(slides, structureTable)
 })
 
@@ -151,10 +150,10 @@ test('should connect siblings with next/previous references', () => {
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | -- | ------------- | ------------ | --------------- | ----------- |
-    | s2 | s1            | null         | null            | s3          |
-    | s3 | s1            | null         | s2              | null        |
+    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | ---- | ------------- | ------------ | --------------- | ----------- |
+    | S1C1 | S1            | null         | null            | S1C2        |
+    | S1C2 | S1            | null         | S1C1            | null        |
   `
 
   // Only verify the child slides (skip the parent)
@@ -163,23 +162,23 @@ test('should connect siblings with next/previous references', () => {
 
 test('should handle complex hierarchy with siblings at multiple levels', () => {
   const rawSlides = [
-    createRawSlide('S1', 0),
-    createRawSlide('S2', 1),
-    createRawSlide('S3', 2),
-    createRawSlide('S4', 2),
-    createRawSlide('S5', 1),
+    createRawSlide('Root', 0),
+    createRawSlide('A1', 1),
+    createRawSlide('B1', 2),
+    createRawSlide('B2', 2),
+    createRawSlide('A2', 1),
   ]
   const { builder } = setUp(rawSlides)
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | -- | ------------- | ------------ | --------------- | ----------- |
-    | s1 | null          | s2           | null            | null        |
-    | s2 | s1            | s3           | null            | s5          |
-    | s3 | s2            | null         | null            | s4          |
-    | s4 | s2            | null         | s3              | null        |
-    | s5 | s1            | null         | s2              | null        |
+    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | ---- | ------------- | ------------ | --------------- | ----------- |
+    | S1   | null          | S1C1         | null            | null        |
+    | S1C1 | S1            | S1C1C1       | null            | S1C2        |
+    | S1C1C1 | S1C1        | null         | null            | S1C1C2      |
+    | S1C1C2 | S1C1        | null         | S1C1C1          | S1C2        |
+    | S1C2 | S1            | null         | S1C1            | null        |
   `
 
   verifySlideStructure(slides, structureTable)

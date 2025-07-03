@@ -10,6 +10,10 @@ export class SlideNodeBuilder {
   private parentStack: SlideNode[] = [] // Index represents the level
   private maxDepthReached = 0
 
+  // For hierarchical ID generation
+  private topLevelCounter = 0
+  private childCounters = new Map<string, number>() // parentId -> childCount
+
   public addSlideNode(rawSlide: RawSlide): SlideNode {
     const slideNode = this.buildSlideNode(rawSlide)
     this.updateNavigationReferences(slideNode, rawSlide.childLevel)
@@ -30,7 +34,7 @@ export class SlideNodeBuilder {
    */
   private buildSlideNode(rawSlide: RawSlide): SlideNode {
     const slideNode: SlideNode = {
-      id: this.generateSlideId(),
+      id: this.generateSlideId(rawSlide.childLevel),
       url: '',
       navigation: {
         childSlideId: null,
@@ -47,10 +51,25 @@ export class SlideNodeBuilder {
   }
 
   /**
-   * Generates a new slide ID
+   * Generates a hierarchical slide ID based on level and parent context
    */
-  private generateSlideId(): string {
-    return `s${this.slideNodes.length + 1}`
+  private generateSlideId(level: number): string {
+    if (level === 0) {
+      // Top-level slide: S1, S2, S3...
+      this.topLevelCounter++
+      return `S${this.topLevelCounter}`
+    } else {
+      // Child slide: inherit parent ID + C + child number
+      const parent = this.parentStack[level - 1]
+      const parentId = parent.id
+
+      // Get or initialize child counter for this parent
+      const currentChildCount = this.childCounters.get(parentId) || 0
+      const newChildCount = currentChildCount + 1
+      this.childCounters.set(parentId, newChildCount)
+
+      return `${parentId}C${newChildCount}`
+    }
   }
 
   /**
@@ -79,16 +98,33 @@ export class SlideNodeBuilder {
         previousSibling.navigation.nextSlideId = currentNode.id
       }
     }
+
+    // Handle cross-level navigation: connect all slides at deeper levels
+    // to this slide when transitioning to a shallower level
+    if (level < this.maxDepthReached) {
+      this.connectAllDeeperSlidesToCurrent(currentNode.id, level)
+    }
   }
 
   /**
-   * Updates the parent stack to track the most recent slide at each level
+   * Connects all slides at levels deeper than the target level to the current slide
    */
-  private updateParentStack(level: number, currentNode: SlideNode): void {
-    // Truncate the stack to the current level (removes deeper levels)
-    this.parentStack.length = level
+  private connectAllDeeperSlidesToCurrent(currentSlideId: string, targetLevel: number): void {
+    for (let depth = targetLevel; depth <= this.maxDepthReached; depth++) {
+      if (this.parentStack[depth] && this.parentStack[depth].navigation.nextSlideId === null) {
+        this.parentStack[depth].navigation.nextSlideId = currentSlideId
+      }
+    }
+  }
 
-    // Add current node as the most recent slide at this level
-    this.parentStack[level] = currentNode
+  /**
+   * Updates the parent stack with the new slide at the given level
+   */
+  private updateParentStack(level: number, slideNode: SlideNode): void {
+    // Truncate the stack to the current level + 1
+    this.parentStack.length = level + 1
+
+    // Set this slide as the current slide at this level
+    this.parentStack[level] = slideNode
   }
 }

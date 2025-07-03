@@ -39,6 +39,56 @@ export function assertErrorResult(result: Result<any, AppError>, code: ErrorCode
 }
 
 /**
+ * Interface for slide table rows without content field
+ */
+export interface SlideTableRow extends Record<string, string> {
+  id: string
+  parentSlideId: string
+  childSlideId: string
+  previousSlideId: string
+  nextSlideId: string
+}
+
+/**
+ * Creates slide nodes by combining a table of structure/navigation with a separate content map
+ * @param markdownTable Table with slide structure and navigation (without content)
+ * @param contentMap Map of slide content by ID
+ * @param presentationName The presentation name to use for URLs
+ * @returns An array of partial SlideNode objects
+ */
+export function createSlidesFromTableAndContent(
+  markdownTable: string,
+  contentMap: ContentMap,
+  presentationName = 'presentation1'
+): Partial<SlideNode>[] {
+  // Parse the markdown table into rows of data
+  const rows = parseMarkdownTable<SlideTableRow>(markdownTable)
+
+  // Convert rows to SlideNode objects with proper type safety
+  return rows.map((row: SlideTableRow) => {
+    // Get content from map or use empty string if not found
+    const content = contentMap[row.id] || ''
+
+    // Ensure all navigation properties are explicitly null (not undefined) when missing
+    const navigation: SlideNavigation = {
+      parentSlideId: toNullable(row.parentSlideId || 'null'),
+      childSlideId: toNullable(row.childSlideId || 'null'),
+      previousSlideId: toNullable(row.previousSlideId || 'null'),
+      nextSlideId: toNullable(row.nextSlideId || 'null'),
+    }
+
+    return {
+      id: row.id,
+      url: `/${presentationName}/${row.id}`,
+      content: trimContent(content),
+      navigation,
+      fragmentId: expect.any(String) as string,
+      userDefinedFrontMatter: {},
+    }
+  })
+}
+
+/**
  * Simple assertion for slide nodes that checks existence by ID and content matching
  * with normalization for whitespace differences
  */
@@ -65,11 +115,6 @@ export function assertSlideNodes(actual: SlideNode[], expected: Partial<SlideNod
     // Verify navigation properties as a complete object
     if (expectedNode.navigation) {
       expect(matchingNode.navigation).toEqual(expectedNode.navigation)
-    }
-
-    // Verify delimiter level if specified
-    if (expectedNode.delimiterLevel !== undefined) {
-      expect(matchingNode.delimiterLevel).toBe(expectedNode.delimiterLevel)
     }
   })
 }
@@ -116,61 +161,6 @@ export function createPresentation(fragments: Fragment[]): Presentation {
     },
     fragments,
   }
-}
-
-/**
- * Helper function to create test data with content and structure
- */
-/**
- * Interface for slide table rows without content field
- */
-export interface SlideTableRow extends Record<string, string> {
-  id: string
-  parentSlideId: string
-  childSlideId: string
-  previousSlideId: string
-  nextSlideId: string
-  delimiterLevel: string
-}
-
-/**
- * Creates slide nodes by combining a table of structure/navigation with a separate content map
- * @param markdownTable Table with slide structure and navigation (without content)
- * @param contentMap Map of slide content by ID
- * @param presentationName The presentation name to use for URLs
- * @returns An array of partial SlideNode objects
- */
-export function createSlidesFromTableAndContent(
-  markdownTable: string,
-  contentMap: ContentMap,
-  presentationName = 'presentation1'
-): Partial<SlideNode>[] {
-  // Parse the markdown table into rows of data
-  const rows = parseMarkdownTable<SlideTableRow>(markdownTable)
-
-  // Convert rows to SlideNode objects with proper type safety
-  return rows.map((row: SlideTableRow) => {
-    // Get content from map or use empty string if not found
-    const content = contentMap[row.id] || ''
-
-    // Ensure all navigation properties are explicitly null (not undefined) when missing
-    const navigation: SlideNavigation = {
-      parentSlideId: toNullable(row.parentSlideId || 'null'),
-      childSlideId: toNullable(row.childSlideId || 'null'),
-      previousSlideId: toNullable(row.previousSlideId || 'null'),
-      nextSlideId: toNullable(row.nextSlideId || 'null'),
-    }
-
-    return {
-      id: row.id,
-      url: `/${presentationName}/${row.id}`,
-      content: trimContent(content),
-      navigation,
-      fragmentId: expect.any(String) as string,
-      userDefinedFrontMatter: {},
-      delimiterLevel: parseInt(row.delimiterLevel, 10),
-    }
-  })
 }
 
 export function createTestData(
