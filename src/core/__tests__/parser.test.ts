@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import { Fragment, Presentation } from '../../types/presentation'
 import { parse } from '../parser/index'
+import { Logger } from '../../utils/logger'
 import {
   assertSlideNodes,
   assertSuccessResult,
@@ -159,7 +160,7 @@ test('parse should handle multi-level child slides', () => {
     ${S1}
     --->
     ${S1C1}
-    -->>
+    --->>
     ${S1C1C1}
     ---
     ${S2}
@@ -256,7 +257,7 @@ test('parse should handle last childs next slide linking to parents next slide',
     ${S1}
     --->
     ${S1C1}
-    -->>
+    --->>
     ${S1C1C1}
     ---
     ${S2}
@@ -320,7 +321,7 @@ test('parse should return error when attempting to skip a delimiter level', () =
   // Arrange
   const { presentation } = setUp(`
     # Parent P1 (level 0)
-    -->>
+    --->>
     # Child C1 (attempted level 2)
   `)
 
@@ -330,14 +331,14 @@ test('parse should return error when attempting to skip a delimiter level', () =
   // Assert
   expect(result.isErr()).toBe(true)
   if (result.isErr()) {
-    expect(result.error.code).toBe('PARSER_DELIMITER_SEQUENCE_ERROR')
+    expect(result.error.code).toBe('INVALID_DELIMITER_SEQUENCE')
     expect(result.error.message).toContain('Invalid nesting increase')
   }
 })
 
 test('parse should handle referenced fragment not found with warning', () => {
-  // Mock console.warn to capture the warning message
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  // Mock Logger.getInstance().info to capture the warning message
+  const loggerInfoSpy = vi.spyOn(Logger.getInstance(), 'info').mockImplementation(() => {})
 
   // Arrange
   const { presentation } = setUp(`
@@ -357,11 +358,11 @@ test('parse should handle referenced fragment not found with warning', () => {
   expect(slideNodes[1].id).toBe('S2')
   expect(slideNodes[1].content).toContain('[Link To Missing](./nonexistent.pres.md)')
 
-  // Verify warning was logged
-  expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Fragment reference './nonexistent.pres.md' not found"))
+  // Verify logger.info was called with the correct message
+  expect(loggerInfoSpy).toHaveBeenCalledWith('Fragment reference ./nonexistent.pres.md not found')
 
   // Cleanup
-  warnSpy.mockRestore()
+  loggerInfoSpy.mockRestore()
 })
 
 test('parse should return error for circular fragment reference', () => {

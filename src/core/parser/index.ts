@@ -36,6 +36,8 @@ export function parsePresentation(presentation: Presentation) {
       if (fragmentRawSlides.isOk() && fragmentRawSlides.value.length > 0) {
         rawSlideArray.splice(index, 1, ...fragmentRawSlides.value)
         index--
+      } else {
+        slideNodeBuilder.addSlideNode(rawSlide)
       }
     } else {
       slideNodeBuilder.addSlideNode(rawSlide)
@@ -53,7 +55,7 @@ function getEmbeddedFragmentSlides(rawSlide: RawSlide, fragmentMap: Map<string, 
   if (fragmentContent && fragmentContent.content) {
     return splitIntoRawSlides(fragmentContent.content, fragmentPath || '', true)
   } else {
-    lg.info('Fragment path not found', fragmentPath)
+    lg.info(`Fragment reference ${fragmentPath} not found`)
     return ok([])
   }
 }
