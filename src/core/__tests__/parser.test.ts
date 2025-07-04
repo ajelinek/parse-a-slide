@@ -178,8 +178,8 @@ test('parse should handle multi-level child slides', () => {
     | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -------- | ------------- | ------------ | --------------- | ----------- |
     | S1       | null          | S1C1         | null            | S2          |
-    | S1C1     | S1            | S1C1C1       | null            | S2          |
-    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | null        |
+    | S1C1C1   | S1C1          | null         | null            | null        |
     | S2       | null          | null         | S1              | null        |
   `
 
@@ -275,8 +275,8 @@ test('parse should handle last childs next slide linking to parents next slide',
     | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -------- | ------------- | ------------ | --------------- | ----------- |
     | S1       | null          | S1C1         | null            | S2          |
-    | S1C1     | S1            | S1C1C1       | null            | S2          |
-    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | null        |
+    | S1C1C1   | S1C1          | null         | null            | null        |
     | S2       | null          | null         | S1              | null        |
   `
 
@@ -450,8 +450,8 @@ test('parse should handle navigating correctly after "popping" up multiple nesti
     | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -------- | ------------- | ------------ | --------------- | ----------- |
     | S1       | null          | S1C1         | null            | S2          |
-    | S1C1     | S1            | S1C1C1       | null            | S2          |
-    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | null        |
+    | S1C1C1   | S1C1          | null         | null            | null        |
     | S2       | null          | S2C1         | S1              | null        |
     | S2C1     | S2            | null         | null            | null        |
   `

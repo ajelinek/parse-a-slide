@@ -150,7 +150,7 @@ test('parse should handle embedding a fragment as a child', () => {
     | ---- | ------------- | ------------ | --------------- | ----------- |
     | S1   | null          | S1C1         | null            | S2          |
     | S1C1 | S1            | null         | null            | S1C2        |
-    | S1C2 | S1            | null         | S1C1            | S2          |
+    | S1C2 | S1            | null         | S1C1            | null        |
     | S2   | null          | null         | S1              | null        |
   `
 
@@ -487,8 +487,8 @@ test('parse should handle a deeply nested fragment with sibling navigation corre
     | id    | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | ----- | ------------- | ------------ | --------------- | ----------- |
     | S1    | null          | S1C1         | null            | S2          |
-    | S1C1  | S1            | S1C1C1       | null            | S2          |
-    | S1C1C1| S1C1          | null         | null            | S2          |
+    | S1C1  | S1            | S1C1C1       | null            | null        |
+    | S1C1C1| S1C1          | null         | null            | null        |
     | S2    | null          | null         | S1              | null        |
   `
 

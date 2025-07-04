@@ -136,8 +136,8 @@ test('should reset parent stack when going back to a lower level', () => {
     | id       | parentSlideId | childSlideId | previousSlideId | nextSlideId |
     | -------- | ------------- | ------------ | --------------- | ----------- |
     | S1       | null          | S1C1         | null            | S2          |
-    | S1C1     | S1            | S1C1C1       | null            | S2          |
-    | S1C1C1   | S1C1          | null         | null            | S2          |
+    | S1C1     | S1            | S1C1C1       | null            | null        |
+    | S1C1C1   | S1C1          | null         | null            | null        |
     | S2       | null          | null         | S1              | null        |
   `
 
@@ -172,13 +172,13 @@ test('should handle complex hierarchy with siblings at multiple levels', () => {
   const slides = builder.getSlideNodes()
 
   const structureTable = `
-    | id   | parentSlideId | childSlideId | previousSlideId | nextSlideId |
-    | ---- | ------------- | ------------ | --------------- | ----------- |
-    | S1   | null          | S1C1         | null            | null        |
-    | S1C1 | S1            | S1C1C1       | null            | S1C2        |
-    | S1C1C1 | S1C1        | null         | null            | S1C1C2      |
-    | S1C1C2 | S1C1        | null         | S1C1C1          | S1C2        |
-    | S1C2 | S1            | null         | S1C1            | null        |
+    | id     | parentSlideId | childSlideId | previousSlideId | nextSlideId |
+    | ------ | ------------- | ------------ | --------------- | ----------- |
+    | S1     | null          | S1C1         | null            | null        |
+    | S1C1   | S1            | S1C1C1       | null            | S1C2        |
+    | S1C1C1 | S1C1          | null         | null            | S1C1C2      |
+    | S1C1C2 | S1C1          | null         | S1C1C1          | null        |
+    | S1C2   | S1            | null         | S1C1            | null        |
   `
 
   verifySlideStructure(slides, structureTable)

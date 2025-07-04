@@ -8,7 +8,6 @@ import { RawSlide } from './fragment-splitter'
 export class SlideNodeBuilder {
   private slideNodes: SlideNode[] = []
   private parentStack: SlideNode[] = [] // Index represents the level
-  private maxDepthReached = 0
 
   // For hierarchical ID generation
   private topLevelCounter = 0
@@ -18,7 +17,6 @@ export class SlideNodeBuilder {
     const slideNode = this.buildSlideNode(rawSlide)
     this.updateNavigationReferences(slideNode, rawSlide.childLevel)
     this.updateParentStack(rawSlide.childLevel, slideNode)
-    this.maxDepthReached = Math.max(this.maxDepthReached, rawSlide.childLevel)
     return slideNode
   }
 
@@ -73,7 +71,7 @@ export class SlideNodeBuilder {
   }
 
   /**
-   * Updates navigation references before updating the parent stack
+   * Updates navigation references for directional arrow pad behavior
    */
   private updateNavigationReferences(currentNode: SlideNode, level: number): void {
     // Set parent relationship if there's a parent at the previous level
@@ -91,29 +89,7 @@ export class SlideNodeBuilder {
     if (this.parentStack[level]) {
       const previousSibling = this.parentStack[level]
       currentNode.navigation.previousSlideId = previousSibling.id
-
-      // Only connect back if we haven't gone too deep since the previous sibling
-      const depthSincePrevious = this.maxDepthReached - level
-      if (depthSincePrevious <= 1) {
-        previousSibling.navigation.nextSlideId = currentNode.id
-      }
-    }
-
-    // Handle cross-level navigation: connect all slides at deeper levels
-    // to this slide when transitioning to a shallower level
-    if (level < this.maxDepthReached) {
-      this.connectAllDeeperSlidesToCurrent(currentNode.id, level)
-    }
-  }
-
-  /**
-   * Connects all slides at levels deeper than the target level to the current slide
-   */
-  private connectAllDeeperSlidesToCurrent(currentSlideId: string, targetLevel: number): void {
-    for (let depth = targetLevel; depth <= this.maxDepthReached; depth++) {
-      if (this.parentStack[depth] && this.parentStack[depth].navigation.nextSlideId === null) {
-        this.parentStack[depth].navigation.nextSlideId = currentSlideId
-      }
+      previousSibling.navigation.nextSlideId = currentNode.id
     }
   }
 
