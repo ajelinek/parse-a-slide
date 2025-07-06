@@ -3,6 +3,7 @@ import { SlideNodeBuilder } from '../slide-node-builder'
 import { RawSlide } from '../fragment-splitter'
 import { SlideNode } from '../../../types/slide'
 import { parseMarkdownTable, toNullable } from '../../../test-utils/markdown-table-util'
+import { FrontMatter } from '../../../types/frontmatter'
 
 // Create a raw slide with the given content, child level and path
 function createRawSlide(content: string, childLevel: number, path = 'test.pres.md'): RawSlide {
@@ -182,4 +183,37 @@ test('should handle complex hierarchy with siblings at multiple levels', () => {
   `
 
   verifySlideStructure(slides, structureTable)
+})
+
+test('should populate SlideNode with front matter', () => {
+  const { builder } = setUp()
+
+  const frontMatter: FrontMatter = {
+    title: 'Test Slide Title',
+    description: 'A test slide description',
+    author: { name: 'John Doe', email: 'john@example.com' },
+    date: '2024-01-01',
+    theme: 'dark',
+    transition: 'fade',
+    customField: 'custom value',
+  }
+
+  const slide = builder.addSlideNode(createRawSlide('# Content', 0), frontMatter)
+
+  expect(slide.frontMatter).toEqual(frontMatter)
+  expect(slide.frontMatter?.title).toBe('Test Slide Title')
+  expect(slide.frontMatter?.description).toBe('A test slide description')
+  expect(slide.frontMatter?.author).toEqual({ name: 'John Doe', email: 'john@example.com' })
+  expect(slide.frontMatter?.date).toBe('2024-01-01')
+  expect(slide.frontMatter?.theme).toBe('dark')
+  expect(slide.frontMatter?.transition).toBe('fade')
+  expect(slide.frontMatter?.customField).toBe('custom value')
+})
+
+test('should handle SlideNode with no front matter', () => {
+  const { builder } = setUp()
+
+  const slide = builder.addSlideNode(createRawSlide('# Content', 0))
+
+  expect(slide.frontMatter).toBeUndefined()
 })

@@ -1,33 +1,27 @@
 import { test, expect, vi } from 'vitest'
-import { writeFile, mkdir, rm } from 'fs/promises'
-import { join } from 'path'
 import { inflate } from '../presentation-inflator'
 import { PresentationMetadata, FragmentMetadata } from '../../types/presentation'
 import { ErrorCode, createError, AppError } from '../../utils/error'
 import * as fsUtils from '../../utils/fs-utils'
 import { Result, err } from 'neverthrow'
+import { fileSystemSetup, FileSystemStructure } from '../../test-utils/file-test-util'
+import { join } from 'path'
 
-async function setUp() {
-  const testDir = join(process.cwd(), 'test-temp')
-  await rm(testDir, { recursive: true, force: true }) // teardown before test
-  await mkdir(testDir, { recursive: true })
+async function setUp(structure: FileSystemStructure) {
+  const testDir = await fileSystemSetup('presentation-inflator', structure)
   return { testDir, inflate }
 }
 
 // --- TESTS ---
 
 test('inflate should merge entry point and fragment front matter', async () => {
-  const { testDir, inflate } = await setUp()
+  const { testDir } = await setUp({
+    'entry.pres.md': `---\ntheme: "dark"\nauthor: "Base Author"\nbaseField: "base value"\n---\n# Entry Content`,
+    'fragment.pres.md': `---\ntitle: "Fragment Title"\nauthor: "Fragment Author"\nfragmentField: "fragment value"\n---\n# Fragment Content`,
+  })
 
-  // Create entry point file with base front matter
   const entryPath = join(testDir, 'entry.pres.md')
-  const entryContent = `---\ntheme: "dark"\nauthor: "Base Author"\nbaseField: "base value"\n---\n# Entry Content`
-  await writeFile(entryPath, entryContent)
-
-  // Create fragment file with override front matter
   const fragmentPath = join(testDir, 'fragment.pres.md')
-  const fragmentContent = `---\ntitle: "Fragment Title"\nauthor: "Fragment Author"\nfragmentField: "fragment value"\n---\n# Fragment Content`
-  await writeFile(fragmentPath, fragmentContent)
 
   // Create presentation metadata
   const fragmentMetaData = [
@@ -113,6 +107,38 @@ test('inflate should fail if a file does not exist', async () => {
   } finally {
     vi.restoreAllMocks()
   }
+})
+
+test('inflate should handle fragments with no front matter', async () => {
+  const { testDir } = await setUp({
+    'entry.pres.md': `---\ntheme: "light"\nauthor: "Entry Author"\n---\n# Entry Content`,
+    'fragment.pres.md': `# Fragment Content\nRegular markdown content without front matter.`,
+  })
+
+  const entryPath = join(testDir, 'entry.pres.md')
+  const fragmentPath = join(testDir, 'fragment.pres.md')
+
+  // Create presentation metadata
+  const fragmentMetaData = [
+    createFragmentMeta({ id: 'entry-1', name: 'entry.pres.md', fullPath: entryPath, isEntry: true }),
+    createFragmentMeta({ id: 'fragment-1', name: 'fragment.pres.md', fullPath: fragmentPath, isEntry: false }),
+  ]
+  const metadata = createPresentationMeta({ fragmentMetaData, entrySlideId: 'entry-1', fullPath: testDir })
+
+  // Call inflate
+  const result = await inflate(metadata)
+  const presentation = assertSuccessResult(result)
+
+  // Verify fragment's final frontMatter is identical to entry point's
+  const entryFragment = presentation.fragments.find(f => f.isEntry)
+  const regularFragment = presentation.fragments.find(f => !f.isEntry)
+
+  expect(regularFragment?.frontMatter).toEqual({
+    theme: 'light',
+    author: 'Entry Author',
+  })
+  expect(regularFragment?.frontMatter).toEqual(entryFragment?.frontMatter)
+  expect(regularFragment?.content.trim()).toBe(`# Fragment Content\nRegular markdown content without front matter.`)
 })
 
 // --- HELPERS ---

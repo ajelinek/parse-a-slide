@@ -156,6 +156,7 @@ The `Parser` and `SlideNodeBuilder` will be modified to handle the new `frontMat
 ## 5. Test Scenarios (Gherkin)
 
 ### 5.1. `FrontMatterParser` Tests
+
 ```gherkin
 Feature: Front Matter Parser Utility
 
@@ -174,7 +175,6 @@ Feature: Front Matter Parser Utility
     And the 'content' should be the original string
 
   @status_complete
-  Scenario: Handle content without front matter
   Scenario: Merge two front matter objects
     Given a 'base' object and an 'override' object
     When `merge` is called
@@ -183,6 +183,7 @@ Feature: Front Matter Parser Utility
 ```
 
 ### 5.2. `PresentationInflator` Tests
+
 ```gherkin
 Feature: Presentation Inflation
 
@@ -201,268 +202,36 @@ Feature: Presentation Inflation
     Given a PresentationMetadata where a fragment has no front matter
     When `inflate` is called
     Then the fragment's final 'frontMatter' should be identical to the entry point's front matter
+
+  @status_complete
+  Scenario: Fail gracefully if a file cannot be read
+    Given a PresentationMetadata pointing to a non-existent or unreadable file
+    When `inflate` is called
+    Then the operation should fail with a clear error code (e.g., FILE_NOT_FOUND, PERMISSION_ERROR)
 ```
 
-### 5.3. `Parser` Integration Tests
-```gherkin
-Feature: Parser with Inflated Presentation
+## 6. Downstream Parser/Builder Scenarios
 
-  Scenario: Create a SlideNode from a fragment with front matter
-    Given an inflated Presentation where a Fragment has final, merged front matter
-    When the `parser` processes this presentation
-    Then the resulting SlideNode should have its properties (title, appearance, etc.) correctly populated from the fragment's front matter
-```
-
-### 5.4. Front Matter Extraction
+The following scenarios are out of scope for the **Inflation Stage** but must be implemented and tested in the **Parser** and **SlideNodeBuilder** modules.
 
 ```gherkin
-Feature: Front Matter Extraction
+Feature: Parser and SlideNodeBuilder with Front Matter
 
-  Scenario: Extract YAML front matter from fragment content
-    Given a fragment with content:
-      """
-      ---
-      title: "My Slide Title"
-      description: "A test slide"
-      theme: dark
-      ---
-      # Slide Content
-      This is the main content.
-      """
-    When I extract front matter from the content
-    Then the front matter YAML should be:
-      """
-      title: "My Slide Title"
-      description: "A test slide"
-      theme: dark
-      """
-    And the content without front matter should be:
-      """
-      # Slide Content
-      This is the main content.
-      """
+  Scenario: Create a SlideNode with front matter
+    Given an inflated Presentation where a Fragment has a `frontMatter` object
+    When the `parser` processes this fragment
+    Then the resulting SlideNode's properties (title, author, theme, etc.) should be correctly populated from the `frontMatter` object
+    And any fields not part of the standard SlideNode model should be stored in `userDefinedFrontMatter`
 
-  Scenario: Handle content without front matter
-    Given a fragment with content:
-      """
-      # Regular Slide
-      No front matter here.
-      """
-    When I extract front matter from the content
-    Then no front matter should be found
-    And the content should remain unchanged
+  Scenario: Handle a SlideNode with no front matter
+    Given an inflated Presentation where a Fragment has an empty `frontMatter` object
+    When the `parser` processes this fragment
+    Then the resulting SlideNode should be created with default/empty values for its properties
 
-  Scenario: Handle malformed front matter (no closing delimiter)
-    Given a fragment with content:
-      """
-      ---
-      title: "Incomplete"
-      description: "No closing delimiter"
-      # Regular Content
-      """
-    When I extract front matter from the content
-    Then no front matter should be found
-    And the content should remain unchanged
-```
-
-### 5.5. YAML Parsing
-
-```gherkin
-Feature: YAML Parsing
-
-  Scenario: Parse valid YAML front matter
-    Given front matter YAML:
-      """
-      title: "Test Slide"
-      description: "A test description"
-      author:
-        name: "John Doe"
-        email: "john@example.com"
-      theme: "dark"
-      customField: "custom value"
-      """
-    When I parse the YAML
-    Then the parsing should succeed
-    And the result should contain title "Test Slide"
-    And the result should contain author with name "John Doe"
-    And the result should contain custom field "customField" with value "custom value"
-
-  Scenario: Handle invalid YAML syntax
-    Given invalid YAML:
-      """
-      title: "Test
-      invalid: yaml: structure:
-      """
-    When I parse the YAML
-    Then the parsing should fail
-    And the error should indicate YAML parsing failure
-
-  Scenario: Handle non-object YAML
-    Given YAML that parses to a primitive:
-      """
-      "just a string"
-      """
-    When I parse the YAML
-    Then the parsing should fail
-    And the error should indicate invalid YAML structure
-```
-
-### 5.6. Field Categorization
-
-```gherkin
-Feature: Field Categorization
-
-  Scenario: Categorize standard metadata fields
-    Given front matter data:
-      """
-      title: "Test Title"
-      description: "Test Description"
-      date: "2024-01-01"
-      author: "Test Author"
-      theme: "dark"
-      customField: "custom"
-      """
-    When I categorize the fields
-    Then title should be in metadata
-    And description should be in metadata
-    And date should be in metadata
-    And author should be in metadata
-    And theme should be in appearance
-    And customField should be in userDefinedFrontMatter
-
-  Scenario: Categorize appearance settings
-    Given front matter data:
-      """
-      theme: "dark"
-      transition: "slide"
-      backgroundImage: "bg.jpg"
-      layout: "center"
-      """
-    When I categorize the fields
-    Then all fields should be in appearance
-
-  Scenario: Handle empty front matter
-    Given empty front matter data: {}
-    When I categorize the fields
-    Then metadata should be empty
-    And appearance should be undefined
-    And userDefinedFrontMatter should be empty
-```
-
-### 5.7. Front Matter Merging and Inheritance
-
-```gherkin
-Feature: Front Matter Inheritance
-
-  Scenario: Merge child front matter with parent
-    Given parent front matter:
-      """
-      theme: "dark"
-      author: "Parent Author"
-      customParent: "parent value"
-      """
-    And child front matter:
-      """
-      title: "Child Title"
-      author: "Child Author"
-      customChild: "child value"
-      """
-    When I merge the front matter
-    Then the result should have title "Child Title"
-    And the result should have author "Child Author" (child overrides)
-    And the result should have theme "dark" (inherited from parent)
-
-    And the result should have both customParent and customChild
-
-  Scenario: Handle child front matter without parent
-    Given no parent front matter
-    And child front matter:
-      """
-      title: "Standalone Title"
-      theme: "light"
-      """
-    When I merge the front matter
-    Then the result should match the child front matter exactly
-```
-
-### 5.8. Parser Integration
-
-```gherkin
-Feature: Parser Integration
-
-  Scenario: Create SlideNode with front matter
-    Given a RawSlide with content:
-      """
-      ---
-      title: "Test Slide"
-      description: "A test slide"
-      theme: "dark"
-      customField: "custom"
-      ---
-      # Main Content
-      """
-    When the parser processes the slide
-    Then the resulting SlideNode should have title "Test Slide"
-    And the SlideNode should have description "A test slide"
-    And the SlideNode should have appearance.theme "dark"
-    And the SlideNode should have userDefinedFrontMatter.customField "custom"
-    And the SlideNode content should be "# Main Content"
-
-  Scenario: Handle slides without front matter
-    Given a RawSlide with regular content
-    When the parser processes the slide
-    Then the resulting SlideNode should have no title
-    And the SlideNode should have empty userDefinedFrontMatter
-    And the SlideNode content should remain unchanged
-
-  Scenario: Handle front matter inheritance in nested slides
-    Given a parent slide with front matter:
-      """
-      theme: "dark"
-      author: "Parent"
-      """
-    And a child slide with front matter:
-      """
-      title: "Child Title"
-      """
-    When the parser processes both slides
-    Then the parent SlideNode should have theme "dark" and author "Parent"
-    And the child SlideNode should have theme "dark" (inherited)
-    And the child SlideNode should have author "Parent" (inherited)
-    And the child SlideNode should have title "Child Title"
-
-  Scenario: Handle front matter parsing errors gracefully
-    Given a slide with invalid YAML front matter
-    When the parser processes the slide
-    Then the parser should log an error
-    And the SlideNode should be created with original content
-    And the parsing should continue for remaining slides
-```
-
-### 5.9. Error Handling
-
-```gherkin
-Feature: Error Handling
-
-  Scenario: Handle YAML syntax errors
-    Given front matter with invalid YAML syntax
-    When front matter processing is attempted
-    Then an error should be returned
-    And the error code should be FRONT_MATTER_PARSE_ERROR
-    And the error message should indicate the YAML syntax issue
-
-  Scenario: Handle non-object YAML structures
-    Given front matter that parses to a string or array
-    When front matter processing is attempted
-    Then an error should be returned
-    And the error code should be FRONT_MATTER_INVALID_YAML
-    And the error message should indicate invalid structure
-
-  Scenario: Graceful degradation on front matter errors
-    Given a presentation with some slides having invalid front matter
-    When the presentation is parsed
-    Then slides with valid front matter should be processed correctly
-    And slides with invalid front matter should use original content
-    And error messages should be logged for invalid slides
-    And the overall parsing should succeed
+  Scenario: Handle YAML parsing errors gracefully
+    Given a slide with invalid YAML that slipped past the inflator (e.g., malformed but not empty)
+    When the `parser` processes the slide
+    Then the `parser` should log an error or warning
+    And the SlideNode should be created with the original content but without front matter
+    And the overall parsing process should continue for other slides
 ``` 

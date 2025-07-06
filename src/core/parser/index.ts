@@ -64,7 +64,9 @@ function processRawSlides(rawSlideArray: RawSlide[], context: ProcessingContext)
       return err(embeddedResult.error)
     }
 
-    context.slideNodeBuilder.addSlideNode(rawSlide)
+    // Get the fragment that contains this raw slide to access its front matter
+    const fragment = context.fragmentMap.get(rawSlide.path)
+    context.slideNodeBuilder.addSlideNode(rawSlide, fragment?.frontMatter)
     previousLevel = rawSlide.childLevel
   }
 

@@ -1,11 +1,13 @@
 /**
  * Author information for slides
  */
-export type Author = {
-  name: string
-  email?: string
-  website?: string
-}
+export type Author =
+  | {
+      name: string
+      email?: string
+      website?: string
+    }
+  | string
 
 export type FrontMatter = {
   title?: string

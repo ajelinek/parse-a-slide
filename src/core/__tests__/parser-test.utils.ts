@@ -82,8 +82,7 @@ export function createSlidesFromTableAndContent(
       url: `/${presentationName}/${row.id}`,
       content: trimContent(content),
       navigation,
-      fragmentId: expect.any(String) as string,
-      userDefinedFrontMatter: {},
+      fragmentPath: expect.any(String) as string,
     }
   })
 }

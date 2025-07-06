@@ -1,5 +1,6 @@
 import { SlideNode } from '../../types/slide'
 import { RawSlide } from './fragment-splitter'
+import { FrontMatter } from '../../types/frontmatter'
 
 /**
  * Responsible for building SlideNode objects from RawSlide input
@@ -13,8 +14,8 @@ export class SlideNodeBuilder {
   private topLevelCounter = 0
   private childCounters = new Map<string, number>() // parentId -> childCount
 
-  public addSlideNode(rawSlide: RawSlide): SlideNode {
-    const slideNode = this.buildSlideNode(rawSlide)
+  public addSlideNode(rawSlide: RawSlide, frontMatter?: FrontMatter): SlideNode {
+    const slideNode = this.buildSlideNode(rawSlide, frontMatter)
     this.updateNavigationReferences(slideNode, rawSlide.childLevel)
     this.updateParentStack(rawSlide.childLevel, slideNode)
     return slideNode
@@ -30,7 +31,7 @@ export class SlideNodeBuilder {
   /**
    * Builds a SlideNode from a RawSlide
    */
-  private buildSlideNode(rawSlide: RawSlide): SlideNode {
+  private buildSlideNode(rawSlide: RawSlide, frontMatter?: FrontMatter): SlideNode {
     const slideNode: SlideNode = {
       id: this.generateSlideId(rawSlide.childLevel),
       url: '',
@@ -42,6 +43,7 @@ export class SlideNodeBuilder {
       },
       content: rawSlide.content,
       fragmentPath: rawSlide.path,
+      frontMatter,
     }
 
     this.slideNodes.push(slideNode)

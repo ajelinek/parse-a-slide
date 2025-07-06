@@ -9,6 +9,7 @@ import {
   createPresentation,
   createTestData,
 } from './parser-test.utils'
+import { FrontMatter } from '../../types/frontmatter'
 
 /**
  * Setup function for standard parser tests
@@ -542,4 +543,51 @@ test('parse should handle a presentation ending with a delimiter creating an emp
 
   // Assert that parser output matches our expectations
   assertSlideNodes(slideNodes, expectedSlides)
+})
+
+test('should pass front matter from Fragment to SlideNode', () => {
+  const frontMatter: FrontMatter = {
+    title: 'Fragment Title',
+    description: 'Fragment Description',
+    author: 'John Doe',
+    theme: 'dark',
+    customField: 'custom value',
+  }
+
+  const fragment = createFragment('# Slide Content\nThis is a test slide.', 'fragment1', 'test.pres.md', true)
+  fragment.frontMatter = frontMatter
+
+  const presentation = createPresentation([fragment])
+
+  const result = parse(presentation)
+
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    const slides = result.value
+    expect(slides).toHaveLength(1)
+
+    const slide = slides[0]
+    expect(slide.frontMatter).toEqual(frontMatter)
+    expect(slide.frontMatter?.title).toBe('Fragment Title')
+    expect(slide.frontMatter?.description).toBe('Fragment Description')
+    expect(slide.frontMatter?.author).toBe('John Doe')
+    expect(slide.frontMatter?.theme).toBe('dark')
+    expect(slide.frontMatter?.customField).toBe('custom value')
+  }
+})
+
+test('should handle Fragment without front matter', () => {
+  const fragment = createFragment('# Slide Content\nThis is a test slide.', 'fragment1', 'test.pres.md', true)
+  const presentation = createPresentation([fragment])
+
+  const result = parse(presentation)
+
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    const slides = result.value
+    expect(slides).toHaveLength(1)
+
+    const slide = slides[0]
+    expect(slide.frontMatter).toBeUndefined()
+  }
 })

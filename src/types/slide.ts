@@ -1,25 +1,16 @@
+import { FrontMatter } from './frontmatter'
+
 /**
  * Represents a single slide in a presentation.
  */
 export interface SlideNode {
   id: string
   url: string
-  title?: string
-  description?: string
-  date?: string
-  author?:
-    | {
-        name: string
-        email?: string
-        website?: string
-      }
-    | string
   navigation: SlideNavigation
-  userDefinedFrontMatter?: Record<string, unknown>
-  appearance?: SlideAppearance
   content: string
   assets?: Asset[]
   fragmentPath: string // ID of the fragment this slide originated from
+  frontMatter?: FrontMatter // All metadata from YAML front matter
 }
 
 /**
@@ -39,17 +30,6 @@ export interface SlideNavigation {
 export interface Asset {
   path: string
   data?: any // In-memory representation of the asset
-}
-
-/**
- * Slide appearance configuration.
- */
-export interface SlideAppearance {
-  theme?: string
-  transition?: string
-  backgroundImage?: string
-  layout?: string
-  [key: string]: any // For additional rendering-specific attributes
 }
 
 /**
