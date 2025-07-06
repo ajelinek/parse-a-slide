@@ -186,6 +186,7 @@ Feature: Front Matter Parser Utility
 ```gherkin
 Feature: Presentation Inflation
 
+  @status_complete
   Scenario: Inflate a presentation with an entry point and one fragment
     Given a PresentationMetadata with an entry point and one fragment
     And the entry point has 'base' front matter
@@ -195,6 +196,7 @@ Feature: Presentation Inflation
     And the fragment in the presentation should have a 'frontMatter' property
     And that property should be the result of merging 'base' and 'override' front matter
 
+  @status_complete
   Scenario: Handle fragments with no front matter
     Given a PresentationMetadata where a fragment has no front matter
     When `inflate` is called

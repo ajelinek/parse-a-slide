@@ -1,3 +1,5 @@
+import { FrontMatter } from './frontmatter'
+
 /**
  * Metadata for a presentation fragment.
  */
@@ -15,7 +17,8 @@ export interface FragmentMetadata {
  * Extends FragmentMetadata and adds the actual content of the fragment file.
  */
 export interface Fragment extends FragmentMetadata {
-  content: string // The content of the fragment file
+  content: string // The content of the fragment file (WITHOUT front matter block)
+  frontMatter?: FrontMatter // The final, merged front matter object
 }
 
 /**

@@ -1,9 +1,8 @@
-import path from 'path'
 import { nanoid } from 'nanoid'
-import { Result } from 'neverthrow'
-import { PasAsyncResult, ok, err, createError, ErrorCode, AppError } from '../utils/error'
-import { findFiles, pathExists, readFile } from '../utils/fs-utils'
-import { PresentationMetadata, FragmentMetadata, Fragment } from '../types/presentation'
+import path from 'path'
+import { FragmentMetadata, PresentationMetadata } from '../types/presentation'
+import { createError, err, ErrorCode, ok, PasAsyncResult } from '../utils/error'
+import { findFiles, pathExists } from '../utils/fs-utils'
 
 // Internal type to represent validated files in a directory
 interface DirectoryPresFiles {
@@ -130,36 +129,4 @@ function createPresentationMetadata(dir: string, files: DirectoryPresFiles): Pre
     entrySlideId: entryId,
     fragmentMetaData: fragments,
   }
-}
-
-/**
- * Inflates fragment metadata with content from the filesystem.
- *
- * @param fragmentMetadatas Array of FragmentMetadata objects to inflate
- * @returns A PasResult containing an array of Fragment objects or an error
- */
-export async function inflateFragments(fragmentMetadatas: FragmentMetadata[]): PasAsyncResult<Fragment[]> {
-  // If input array is empty, return an empty array result
-  if (fragmentMetadatas.length === 0) {
-    return ok([])
-  }
-
-  const inflatedFragments: Fragment[] = []
-
-  // Process each fragment metadata
-  for (const fragmentMeta of fragmentMetadatas) {
-    const contentResult = await readFile(fragmentMeta.fullPath)
-
-    // If any file read fails, return the error immediately
-    if (contentResult.isErr()) {
-      return err(contentResult.error)
-    }
-
-    inflatedFragments.push({
-      ...fragmentMeta,
-      content: contentResult.value,
-    })
-  }
-
-  return ok(inflatedFragments)
 }

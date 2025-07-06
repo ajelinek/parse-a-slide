@@ -1,11 +1,12 @@
 import matter from 'gray-matter'
+import { FrontMatter } from '../types/frontmatter'
 
 /**
  * Parses raw file content to separate YAML front matter from the main content.
  * @param rawContent The raw string content of a file.
  * @returns An object containing the parsed front matter and the content without front matter.
  */
-export function parse(rawContent: string): { frontMatter: Record<string, any>; content: string } {
+export function parse(rawContent: string): { frontMatter: FrontMatter; content: string } {
   const { data, content } = matter(rawContent)
   return { frontMatter: data, content }
 }
@@ -16,6 +17,6 @@ export function parse(rawContent: string): { frontMatter: Record<string, any>; c
  * @param overrideObject The overriding object (e.g., from a specific fragment).
  * @returns A new object with the merged properties.
  */
-export function merge(baseObject: object, overrideObject: object): object {
+export function merge(baseObject: FrontMatter, overrideObject: FrontMatter): FrontMatter {
   return { ...baseObject, ...overrideObject }
 }
