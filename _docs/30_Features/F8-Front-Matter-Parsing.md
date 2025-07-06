@@ -122,7 +122,7 @@ The `Parser` and `SlideNodeBuilder` will be modified to handle the new `frontMat
 -   **Parser Logic**: The core responsibility of the `Parser` is to orchestrate the creation of `SlideNode`s. As it processes each `Fragment` (the entry point first, then any embedded fragments), it will:
     1.  Hold a reference to the `Fragment`'s `frontMatter`.
     2.  Call `splitIntoRawSlides` on the `Fragment`'s `content`.
-    3.  For each `RawSlide` returned, it will call the `SlideNodeBuilder`, passing **both** the `RawSlide` and the `frontMatter` from the Fragment the `RawSlide` originated from, not the 'parent Fragment'.
+    3.  For each `RawSlide` returned, it will call the `SlideNodeBuilder`, passing **both** the `RawSlide` and the `frontMatter` from the Fragment the `RawSlide` originated from.
 
 -   **`SlideNodeBuilder` Modifications**: The builder is responsible for constructing the final `SlideNode`. Its `buildSlideNode` method will be updated to accept the `frontMatter` object and apply its values.
 
@@ -159,18 +159,22 @@ The `Parser` and `SlideNodeBuilder` will be modified to handle the new `frontMat
 ```gherkin
 Feature: Front Matter Parser Utility
 
+  @status_complete
   Scenario: Correctly parse content with front matter
     Given a string with a valid YAML front matter block
     When `parse` is called
     Then it should return an object with the parsed 'frontMatter'
     And the 'content' property should not contain the front matter block
 
+  @status_complete
   Scenario: Handle content without front matter
     Given a string without a YAML front matter block
     When `parse` is called
     Then the 'frontMatter' object should be empty
     And the 'content' should be the original string
 
+  @status_complete
+  Scenario: Handle content without front matter
   Scenario: Merge two front matter objects
     Given a 'base' object and an 'override' object
     When `merge` is called
