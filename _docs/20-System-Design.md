@@ -31,7 +31,13 @@ parse-a-slide/
 │   │   └── cli.ts             // Main CLI entry point, yargs setup
 │   ├── core/
 │   │   ├── discovery.ts       // Discovers presentation and fragment files
-│   │   ├── parser.ts          // Parses presentation content into slide nodes
+│   │   ├── presentation-inflator.ts // Reads file content and processes front matter
+│   │   ├── front-matter-parser.ts   // Utility for parsing and merging front matter
+│   │   ├── parser/
+│   │   │   ├── index.ts                    # Main parser orchestration with expanding array logic
+│   │   │   ├── fragment-splitter.ts        # Content splitting by delimiters and level detection
+│   │   │   ├── parser-utils.ts            # Utility functions for delimiter parsing and validation
+│   │   │   └── slide-node-builder.ts      # Class-based slide creation and navigation linking
 │   │   ├── generator.ts       // Generates output files (HTML/MDX)
 │   │   ├── watcher.ts         // Handles file watching for live reloading
 │   │   ├── processors/        // Directory for slide node processors
@@ -80,28 +86,35 @@ parse-a-slide/
   - `findFiles(globPattern: string, cwd: string): ResultAsync<string[], AppError>`
 - **Dependencies**: Node.js `fs`, `path`, `glob` library, `neverthrow`.
 
-### 4.4. Parser (`src/core/parser.ts`)
+### 4.4. `PresentationInflator` (`src/core/presentation-inflator.ts`)
 
 - **Responsibility**:
-  - Takes inflated `PresentationMetadata` (with content) and its associated `FragmentMetadata` (with content).
-  - Parses the content according to defined rules to construct a structured representation of the presentation, typically a tree of `SlideNode` objects.
-  - Applies an array of `Processor` functions to each `SlideNode` to extend or modify its data.
-  - Does **not** perform any file I/O operations. All necessary content is provided as input.
-- **Input**:
-  - `presentation: Presentation`
-  - `processors: Processor[]`
-- **Output**: `Result<SlideNodes, AppError>` (an array of root slide nodes for the presentation)
+  - Takes `PresentationMetadata` from the `Discovery` stage.
+  - Reads the content for the entry point and all fragment files using `FSUtils`.
+  - Uses the `FrontMatterParser` to extract YAML front matter from the content.
+  - Performs a simple merge: the entry point's front matter serves as a base, which is overridden by each fragment's specific front matter.
+  - Produces a fully inflated `Presentation` object where each `Fragment` contains its clean content and final, merged front matter.
+- **Dependencies**: `Discovery`, `FrontMatterParser`, `FSUtils`.
+- **Output**: `ResultAsync<Presentation, AppError>`
 
-### 4.5. Processors (`src/core/processors/`)
+### 4.5. `FrontMatterParser` (`src/core/front-matter-parser.ts`)
 
 - **Responsibility**:
-  - Functions that take a `SlideNode` as input and return an updated `SlideNode`.
-  - Used to extend the parsing logic and add or transform data within slide nodes.
-  - Example: A `speakerNotesProcessor` could extract speaker notes from a specific syntax within the slide content and add them to the `SlideNode.speakerNotes` property. Another processor might handle custom directives or macros.
-  - A key processor will be one that identifies assets (e.g., images referenced in Markdown) and updates the `SlideNode` with asset metadata. This metadata might include original paths and potentially new paths if assets are to be transformed or copied.
-- **Interface**: `type Processor = (slideNode: SlideNode) => Result<SlideNode, AppError>;`
+  - A stateless utility that wraps the `gray-matter` library.
+  - Provides a `parse` function to separate front matter from content.
+  - Provides a `merge` function to combine two front matter objects.
+- **Dependencies**: `gray-matter`.
 
-### 4.6. Generator (`src/core/generator.ts`)
+### 4.6. Parser (`src/core/parser/`)
+
+- **Responsibility**:
+  - Takes a fully inflated `Presentation` object from the `PresentationInflator`.
+  - Transforms it into a flat, structured list of `SlideNode` objects with fully resolved navigation.
+  - Does **not** perform any file I/O or front matter merging logic.
+- **Input**: `presentation: Presentation`
+- **Output**: `Result<SlideNode[], AppError>`
+
+### 4.7. Generator (`src/core/generator.ts`)
 
 - **Responsibility**:
   - Takes an array of `SlideNode` objects (the output from the `Parser`).
@@ -115,7 +128,7 @@ parse-a-slide/
 - **Dependencies**: `FSUtils`.
 - **Output**: `ResultAsync<void, AppError>`
 
-### 4.7. Asset Copier (`src/utils/assetCopier.ts`)
+### 4.8. Asset Copier (`src/utils/assetCopier.ts`)
 
 - **Responsibility**:
   - Copies assets (e.g., images, videos) referenced in the presentations from their source locations to the appropriate target directory within the output structure.
@@ -129,42 +142,40 @@ parse-a-slide/
 
 ## 5. Data Flow / Order of Operations (Build Command)
 
-This section outlines the high-level sequence of operations when the `build` command is executed, focusing on module interactions and core function responsibilities.
+This section outlines the high-level sequence of operations when the `build` command is executed. The architecture follows a clean, three-stage pipeline: **Discover -> Inflate -> Parse**.
 
 1.  **CLI Invocation & Options Parsing**:
-
     - User executes the `build` command.
-    - `CLI` (via `yargs`) parses arguments into `BuildOptions` and invokes `BuildHandler`.
+    - `CLI` (via `yargs`) parses arguments and invokes `BuildHandler`.
 
 2.  **`BuildHandler` Orchestration**:
+    - `BuildHandler` receives `BuildOptions` and coordinates the entire build workflow.
 
-    - `BuildHandler` receives `BuildOptions` and orchestrates the entire build workflow.
-
-3.  **Presentation Discovery (`Discovery`)**:
-
+3.  **Stage 1: Discovery (`Discovery`)**:
     - `BuildHandler` calls `Discovery.discoverPresentations(buildOptions.inputPath)`.
-    - `Discovery` utilizes `FSUtils` (core function: `findFiles`) to locate main presentation files and their associated fragment files. It constructs `PresentationMetadata` for each discovered presentation and performs necessary validations (e.g., conflicting index files).
-    - Returns `ResultAsync<PresentationMetadata[], AppError>` to `BuildHandler`.
+    - `Discovery` uses `FSUtils` to find presentation files and constructs `PresentationMetadata` for each, containing only file path information.
+    - Returns `ResultAsync<PresentationMetadata[], AppError>`.
 
 4.  **Processing Loop Initiation (`BuildHandler`)**:
-
-    - `BuildHandler` examines the result from `Discovery`. If errors occurred or no presentations were found, it reports to the user and exits.
-    - Otherwise, it proceeds to iterate through each `PresentationMetadata`.
+    - `BuildHandler` iterates through each `PresentationMetadata` returned from the Discovery stage.
 
 5.  **Per-Presentation Processing (`BuildHandler`)**: For each `PresentationMetadata` object:
 
-    a. **Content Inflation**: `BuildHandler` is responsible for loading the actual content. It uses `FSUtils` (core function: `readFile`) to read the file content for the main presentation and all its associated fragments, creating a fully inflated `Presentation` object (which includes `PresentationMetadata` and `Fragment`s with their content).
+    a. **Stage 2: Inflation (`PresentationInflator`)**: `BuildHandler` calls `PresentationInflator.inflate(metadata)`.
+    - `PresentationInflator` reads all necessary files using `FSUtils`.
+    - It calls `FrontMatterParser` to extract and merge front matter.
+    - Returns `ResultAsync<Presentation, AppError>` with a fully inflated `Presentation` object where fragments contain their content and final front matter.
 
-    b. **Parsing (`Parser`)**: `BuildHandler` calls `Parser.parse(inflatedPresentation, configuredProcessors)`.
-    _ `Parser` processes the `Presentation` object's content. It applies any configured `Processor` functions to transform or enrich `SlideNode` data (e.g., identifying image assets and populating `SlideNode.assets`).
-    _ Returns `Result<SlideNodes, AppError>` (where `SlideNodes` is an array of `SlideNode` objects).
+    b. **Stage 3: Parsing (`Parser`)**: If inflation is successful, `BuildHandler` calls `Parser.parsePresentation(inflatedPresentation)`.
+    - `Parser` processes the in-memory `Presentation` object to create a flat list of `SlideNode` objects with navigation.
+    - Returns `Result<SlideNode[], AppError>`.
 
-    c. **Output Generation (`Generator`)**: If parsing is successful, `BuildHandler` calls `Generator.generateOutput(slideNodes, buildOptions.format, presentationSpecificOutputDir)`. \* `Generator` creates the output content (HTML or MDX) from the `SlideNodes` and uses `FSUtils` (core function: `writeFile`) to save the generated file(s) to the presentation's specific output directory.
+    c. **Output Generation (`Generator`)**: If parsing is successful, `BuildHandler` calls `Generator.generateOutput(...)`.
 
-    d. **Asset Handling (`AssetCopier`)**: `BuildHandler` calls `AssetCopier.processAssets(sourcePresentationDir, presentationSpecificOutputDir, slideNodes)`. \* `AssetCopier` manages asset files. It uses `FSUtils` (core functions: `copyFile` for existing assets, `writeFile` for new/generated assets) to transfer assets from the source presentation directory to the output directory and to write any new assets (e.g., base64 encoded images created by processors) into the output structure.
+    d. **Asset Handling (`AssetCopier`)**: `BuildHandler` calls `AssetCopier.processAssets(...)`.
 
 6.  **Completion Reporting (`BuildHandler`)**:
-    - After processing all presentations, `BuildHandler` reports overall success or any accumulated errors to the user.
+    - After processing all presentations, `BuildHandler` reports the final status to the user.
 
 ### Sequence Diagram
 
@@ -174,43 +185,37 @@ sequenceDiagram
     participant CLI
     participant BuildHandler
     participant Discovery
-    participant FSUtils
+    participant PresentationInflator
     participant Parser
     participant Generator
-    participant AssetCopier
 
     User->>CLI: `build` command + options
     CLI->>BuildHandler: invoke(BuildOptions)
 
     BuildHandler->>Discovery: discoverPresentations(inputPath)
-    Discovery->>FSUtils: findFiles(patterns)  // For presentations & fragments
-    FSUtils-->>Discovery: ResultAsync<string[], AppError> // File paths
     Discovery-->>BuildHandler: ResultAsync<PresentationMetadata[], AppError>
 
     alt No presentations or error
         BuildHandler-->>User: Report error & exit
     else Presentations found
         loop For each PresentationMetadata
-            note over BuildHandler, FSUtils: Inflate Presentation with content
-            BuildHandler->>FSUtils: readFile(filePath) // For pres. & fragment content
-            FSUtils-->>BuildHandler: ResultAsync<string, AppError> // Content
-            note right of BuildHandler: Inflated Presentation object ready
+            BuildHandler->>PresentationInflator: inflate(PresentationMetadata)
+            note over PresentationInflator: Reads files, parses & merges front matter
+            PresentationInflator-->>BuildHandler: ResultAsync<Presentation, AppError>
 
-            BuildHandler->>Parser: parse(Presentation, Processors)
-            Parser-->>BuildHandler: Result<SlideNodes, AppError>
+            alt Inflation successful
+                BuildHandler->>Parser: parsePresentation(Presentation)
+                Parser-->>BuildHandler: Result<SlideNode[], AppError>
 
-            alt Parsing successful
-                BuildHandler->>Generator: generateOutput(SlideNodes, format, outputDir)
-                Generator->>FSUtils: writeFile(outputPath, content)
-                FSUtils-->>Generator: ResultAsync<void, AppError>
-                Generator-->>BuildHandler: ResultAsync<void, AppError>
-
-                BuildHandler->>AssetCopier: processAssets(sourceDir, outputDir, SlideNodes)
-                AssetCopier->>FSUtils: copyFile(...), writeFile(...) // For existing & new assets
-                FSUtils-->>AssetCopier: ResultAsync<void, AppError>
-                AssetCopier-->>BuildHandler: ResultAsync<void, AppError>
-            else Parsing failed
-                BuildHandler-->>User: Report error
+                alt Parsing successful
+                    BuildHandler->>Generator: generateOutput(SlideNodes, ...)
+                    Generator-->>BuildHandler: ResultAsync<void, AppError>
+                    note over BuildHandler: Asset handling would also occur here.
+                else Parsing failed
+                    BuildHandler-->>User: Report parsing error
+                end
+            else Inflation failed
+                BuildHandler-->>User: Report inflation error
             end
         end
         BuildHandler-->>User: Report overall success/failure
@@ -235,10 +240,10 @@ graph TD
 
     subgraph Core_Layer ["Core Logic (src/core)"]
         Discovery["discovery.ts"]
-        Parser["parser.ts"]
-        ProcessorsDir["processors/"]
+        PresentationInflator["presentation-inflator.ts"]
+        FrontMatterParser["front-matter-parser.ts"]
+        Parser["parser/"]
         Generator["generator.ts"]
-        Watcher["watcher.ts (Handles --watch)"]
     end
 
     subgraph Utils_Layer ["Utilities (src/utils)"]
@@ -246,25 +251,23 @@ graph TD
         AssetCopier["assetCopier.ts"]
     end
 
-    User -- "Executes 'build' or 'watch' command" --> CLI_Main
+    User -- "Executes 'build' command" --> CLI_Main
     CLI_Main -- "Routes to" --> BuildCommand
     BuildCommand -- "Invokes" --> BuildHandler
 
-    BuildHandler -- "1. Uses (for --watch)" --> Watcher
-    Watcher -- "Uses (monitors file changes)" --> FSUtils
-
-    BuildHandler -- "2. Calls" --> Discovery
+    BuildHandler -- "1. Calls" --> Discovery
     Discovery -- "Uses" --> FSUtils
 
-    BuildHandler -- "3. Inflates Presentation (Uses)" --> FSUtils
+    BuildHandler -- "2. Calls" --> PresentationInflator
+    PresentationInflator -- "Uses" --> FrontMatterParser
+    PresentationInflator -- "Uses" --> FSUtils
 
-    BuildHandler -- "4. Calls" --> Parser
-    Parser -- "Uses" --> ProcessorsDir
+    BuildHandler -- "3. Calls" --> Parser
 
-    BuildHandler -- "5. Calls" --> Generator
+    BuildHandler -- "4. Calls" --> Generator
     Generator -- "Uses" --> FSUtils
 
-    BuildHandler -- "6. Calls" --> AssetCopier
+    BuildHandler -- "5. Calls" --> AssetCopier
     AssetCopier -- "Uses" --> FSUtils
 
     classDef user fill:#f9f,stroke:#333,stroke-width:2px;

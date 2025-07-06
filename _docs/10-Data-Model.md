@@ -50,7 +50,8 @@ A `Fragment` represents an individual component or file of the presentation, com
 **Attributes:**
 
 - `metadata`: (`FragmentMetadata`) The metadata object associated with this fragment.
-- `content`: (String) The raw content of the fragment file.
+- `content`: (String) The raw content of the fragment file, with front matter removed.
+- `frontMatter`: (Object, Optional) A key-value object containing the final, merged front matter properties for this fragment.
 
 ---
 
@@ -91,7 +92,6 @@ A `SlideNode` represents a conceptual slide within the presentation. It aggregat
   - `transition`: (String, Optional) Specifies the transition effect for this slide (e.g., "fade", "slideLeft").
   - `backgroundImage`: (String, Optional) URL or path to a background image for the slide.
   - `layout`: (String, Optional) Specifies a layout template for the slide (e.g., "title-only", "two-column").
-  - `timing`: (Object, Optional) Configuration for timed transitions or animations (e.g., `{ duration: 5000, autoAdvance: true }`).
   - Other rendering-specific attributes.
 - `content`: (String) The processed and aggregated content that constitutes this slide, ready for display.
 - `assets`: (Array of `Asset`) A list of assets associated with this slide, including images, videos, or other media. It will have the asset relative paths and the actual asset in memory.

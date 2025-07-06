@@ -23,7 +23,7 @@ This document outlines the features and user stories for the CLI Slide Parser pr
 
 ---
 
-[ ] E2: Core Parsing Pipeline - Implementing the main workflow for discovering, parsing, and generating presentation slides.
+[x] E2: Core Parsing Pipeline - Implementing the main workflow for discovering, parsing, and generating presentation slides.
 
 - [x] **F5: Presentation Discovery** - Implement the `Discovery` module to find presentation and fragment files.
 
@@ -32,71 +32,91 @@ This document outlines the features and user stories for the CLI Slide Parser pr
   - [x] **S3**: Return `PresentationMetadata` (paths only, no content) for each presentation.
   - [x] **S4**: Validate against conflicting `index.pres` files in the same directory.
 
-- [ ] **F5.1: Global Presentation Fragments** - Implement the `Discovery` module to find presentation and fragment files which are not part of a specific presentation. (Any folder which does not have a root `index.pres` file)
+- [x] **F5.1: Global Presentation Fragments** - Implement the `Discovery` module to find presentation and fragment files which are not part of a specific presentation. (Any folder which does not have a root `index.pres` file)
 
-  - [ ] **S1**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the global presentation in their directory.
-  - [ ] **S2**: Return `FragmentMetadata` (paths only, no content) for each fragment.
-  - [ ] **S3**: Validate against conflicting `index.pres` files in the same directory.
+  - [x] **S1**: Identify all non-`index.pres.md(x)` files (e.g., `anyname.pres.md(x)`) as fragments associated with the global presentation in their directory.
+  - [x] **S2**: Return `FragmentMetadata` (paths only, no content) for each fragment.
+  - [x] **S3**: Validate against conflicting `index.pres` files in the same directory.
 
 - [x] **F6: Presentation Inflation** - Implement logic in `BuildHandler` to load content for discovered presentations.
 
   - [x] **S1**: `BuildHandler` reads content of presentations and fragments using `FSUtils`.
   - [x] **S2**: `BuildHandler` creates an inflated `Presentation` object with all metadata and content.
 
-- [ ] **F7: Core Parser Implementation** - Develop the `Parser` module to transform presentation content into `SlideNodes`.
+- [x] **F7: Core Parser Implementation** - Develop the `Parser` module to transform presentation content into `SlideNodes`.
 
-  - [ ] **S1**: `Parser` takes an inflated `Presentation` object and produces a list of `SlideNodes`.
-  - [ ] **S2**: Handle basic slide and fragment structures.
-  - [ ] **S3**: Support an extensible `Processor` pipeline (initially with no-op processors).
-
-- [ ] **F8: Basic Generator (MDX)** - Implement the `Generator` to output `SlideNodes` as MDX.
-
-  - [ ] **S1**: Generate MDX output from parsed slides based on `mdx` format option.
-
-- [ ] **F9: Basic Generator (HTML)** - Extend the `Generator` to output `SlideNodes` as HTML.
-
-  - [ ] **S1**: Generate HTML output from parsed slides based on `html` format option.
-
-- [ ] **F10: Asset Copier - Source Assets** - Implement the `AssetCopier` to handle existing assets.
-  - [ ] **S1**: Copy existing images and other non-presentation files from source to output for relative linking.
-  - [ ] **S2**: `AssetCopier` copies all files (excluding `.pres.*` and `.frag.*`) from source to target.
+  - [x] **S1**: `Parser` takes an inflated `Presentation` object and produces a list of `SlideNodes`.
+  - [x] **S2**: Handle basic slide and fragment structures.
+  - [x] **S3**: Support an extensible `Processor` pipeline (initially with no-op processors).
 
 ---
 
-[ ] E3: Advanced Features & Processors - Enhancements to the parsing pipeline, including specialized content processors and advanced asset handling.
+[ ] E3: Content Processing & Asset Management - Advanced parsing features and asset handling pipeline.
 
-- [ ] **F11: Mermaid Diagram Support** - Implement a `Processor` and related logic for handling Mermaid diagrams.
+- [ ] **F8: Front Matter Parsing** - Implement YAML front matter extraction and processing for fragments.
+
+  - [ ] **S1**: Create a `FrontMatterParser` utility to parse YAML front matter from raw file content.
+  - [ ] **S2**: Create a `PresentationInflator` module that reads all fragment files.
+  - [ ] **S3**: The `Inflator` should use the `FrontMatterParser` to extract front matter from the entry point and all other fragments.
+  - [ ] **S4**: The `Inflator` should merge the entry point's front matter with each fragment's front matter, with fragment-specific properties taking precedence.
+  - [ ] **S5**: The `Parser` should be simplified to accept a `Presentation` where each `Fragment` contains its final, pre-merged front matter.
+  - [ ] **S6**: The `SlideNodeBuilder` should apply the final front matter properties (`title`, `appearance`, `userDefinedFrontMatter`, etc.) to the `SlideNode`.
+
+- [ ] **F9: Asset Copier - Source Assets** - Implement the `AssetCopier` to handle existing assets.
+
+  - [ ] **S1**: Copy existing images and other non-presentation files from source to output for relative linking.
+  - [ ] **S2**: `AssetCopier` copies all files (excluding `.pres.*` and `.frag.*`) from source to target.
+  - [ ] **S3**: Update asset references in SlideNode content to maintain correct relative paths.
+  - [ ] **S4**: Handle asset deduplication when the same asset is referenced by multiple slides.
+
+- [ ] **F10: Asset Copier - Generated Assets** - Extend `AssetCopier` to handle assets created by processors.
+  - [ ] **S1**: `AssetCopier` writes new assets generated by processors (e.g., diagrams from code, including Mermaid SVGs) to the output directory.
+  - [ ] **S2**: Update SlideNode content to reference generated assets with correct paths.
+  - [ ] **S3**: Manage asset lifecycle and cleanup for regenerated content.
+
+---
+
+[ ] E4: Output Generation - Multiple output format support for presentations.
+
+- [ ] **F11: Basic Generator (MDX)** - Implement the `Generator` to output `SlideNodes` as MDX.
+
+  - [ ] **S1**: Generate MDX output from parsed slides based on `mdx` format option.
+  - [ ] **S2**: Include navigation metadata in MDX output for slide transitions.
+  - [ ] **S3**: Preserve front matter in generated MDX files.
+  - [ ] **S4**: Handle embedded assets and maintain proper references.
+
+- [ ] **F12: Basic Generator (HTML)** - Extend the `Generator` to output `SlideNodes` as HTML.
+
+  - [ ] **S1**: Generate HTML output from parsed slides based on `html` format option.
+  - [ ] **S2**: Apply appearance settings from front matter to HTML output.
+  - [ ] **S3**: Generate navigation controls and slide structure in HTML.
+  - [ ] **S4**: Embed assets directly or via references in HTML output.
+
+- [ ] **F13: Mermaid Diagram Support** - Implement a `Processor` and related logic for handling Mermaid diagrams.
 
   - [ ] **S1**: Implement a `Processor` to identify Mermaid code blocks in slide content.
   - [ ] **S2**: Render Mermaid code blocks to SVG files for HTML output format.
   - [ ] **S3**: Preserve raw Mermaid code blocks for MDX and MD output formats.
   - [ ] **S4**: Embed generated SVGs (e.g., via `<img>` tags) into HTML slide outputs.
-  - [ ] **S5**: Provide the generated svg as output in the SlideNode
-
-- [ ] **F13: Asset Copier - Generated Assets** - Extend `AssetCopier` to handle assets created by processors.
-  - [ ] **S1**: `AssetCopier` writes new assets generated by processors (e.g., diagrams from code, including Mermaid SVGs) to the output directory.
+  - [ ] **S5**: Provide the generated svg as output in the SlideNode.
 
 ---
 
-[ ] E4: CLI Enhancements & Error Handling - Improving the command-line interface usability and robustness of error reporting.
+[ ] E5: CLI Enhancements - Advanced command-line features and development workflow support.
 
-- [ ] **F15: Robust Error Reporting** - Enhance CLI error reporting.
+- [ ] **F14: Comprehensive CLI Options** - Finalize and test all CLI options for the `build` command.
 
-  - [ ] **S1**: Provide clear and informative error messages for parsing failures at any stage.
-  - [ ] **S2**: `BuildHandler` aggregates errors from `neverthrow` results and presents them cohesively via the `Logger`.
-
-- [ ] **F16: Comprehensive CLI Options** - Finalize and test all CLI options for the `build` command.
   - [ ] **S1**: Ensure reliable operation of `--input`, `--output`, and `--format` options.
   - [ ] **S2**: Implement `--watch` (`-w`) option to monitor source files and trigger reprocessing on changes.
   - [ ] **S3**: Implement `--clean` option to remove the output directory before a build.
 
 ---
 
-[ ] E5: Documentation & Finalization - Final project tasks including user and developer documentation.
+[ ] E6: Documentation & Finalization - Final project tasks including user and developer documentation.
 
-- [ ] **F17: User Documentation** - Create basic user documentation (e.g., README updates).
+- [ ] **F15: User Documentation** - Create basic user documentation (e.g., README updates).
 
   - [ ] **S1**: Provide clear instructions on how to install and use the CLI tool.
 
-- [ ] **F18: Code Documentation Review** - Ensure TSDoc comments are in place for public APIs.
+- [ ] **F16: Code Documentation Review** - Ensure TSDoc comments are in place for public APIs.
   - [ ] **S1**: Maintain well-documented code for module interfaces and functions.

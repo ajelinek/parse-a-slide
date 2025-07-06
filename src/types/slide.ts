@@ -49,11 +49,6 @@ export interface SlideAppearance {
   transition?: string
   backgroundImage?: string
   layout?: string
-  timing?: {
-    duration?: number
-    autoAdvance?: boolean
-    [key: string]: any
-  }
   [key: string]: any // For additional rendering-specific attributes
 }
 
