@@ -53,14 +53,14 @@ This document outlines the features and user stories for the CLI Slide Parser pr
 
 [ ] E3: Content Processing & Asset Management - Advanced parsing features and asset handling pipeline.
 
-- [ ] **F8: Front Matter Parsing** - Implement YAML front matter extraction and processing for fragments.
+- [x] **F8: Front Matter Parsing** - Implement YAML front matter extraction and processing for fragments.
 
-  - [ ] **S1**: Create a `FrontMatterParser` utility to parse YAML front matter from raw file content.
-  - [ ] **S2**: Create a `PresentationInflator` module that reads all fragment files.
-  - [ ] **S3**: The `Inflator` should use the `FrontMatterParser` to extract front matter from the entry point and all other fragments.
-  - [ ] **S4**: The `Inflator` should merge the entry point's front matter with each fragment's front matter, with fragment-specific properties taking precedence.
-  - [ ] **S5**: The `Parser` should be simplified to accept a `Presentation` where each `Fragment` contains its final, pre-merged front matter.
-  - [ ] **S6**: The `SlideNodeBuilder` should apply the final front matter properties (`title`, `appearance`, `userDefinedFrontMatter`, etc.) to the `SlideNode`.
+  - [x] **S1**: Create a `FrontMatterParser` utility to parse YAML front matter from raw file content.
+  - [x] **S2**: Create a `PresentationInflator` module that reads all fragment files.
+  - [x] **S3**: The `Inflator` should use the `FrontMatterParser` to extract front matter from the entry point and all other fragments.
+  - [x] **S4**: The `Inflator` should merge the entry point's front matter with each fragment's front matter, with fragment-specific properties taking precedence.
+  - [x] **S5**: The `Parser` should be simplified to accept a `Presentation` where each `Fragment` contains its final, pre-merged front matter.
+  - [x] **S6**: The `SlideNodeBuilder` should apply the final front matter properties (`title`, `appearance`, `userDefinedFrontMatter`, etc.) to the `SlideNode`.
 
 - [ ] **F9: Asset Copier - Source Assets** - Implement the `AssetCopier` to handle existing assets.
 
