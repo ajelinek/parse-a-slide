@@ -25,12 +25,14 @@
     "fast-glob": "^3.3.2",
     "glob": "^10.4.5",
     "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.0",
     "nanoid": "^5.1.5",
     "neverthrow": "^8.2.0",
     "typescript": "^5.4.5",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.2",
     "@types/yargs": "^17.0.32",
     "vitest": "^1.6.0"
