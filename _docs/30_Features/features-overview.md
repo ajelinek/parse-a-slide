@@ -78,12 +78,12 @@ This document outlines the features and user stories for the CLI Slide Parser pr
 
 [ ] E4: Output Generation - Multiple output format support for presentations.
 
-- [ ] **F11: Basic Generator (MDX)** - Implement the `Generator` to output `SlideNodes` as MDX.
+- [x] **F11: Basic Generator (MDX)** - Implement the `Generator` to output `SlideNodes` as MDX.
 
-  - [ ] **S1**: Generate MDX output from parsed slides based on `mdx` format option.
-  - [ ] **S2**: Include navigation metadata in MDX output for slide transitions.
-  - [ ] **S3**: Preserve front matter in generated MDX files.
-  - [ ] **S4**: Handle embedded assets and maintain proper references.
+  - [x] **S1**: Generate MDX output from parsed slides based on `mdx` format option.
+  - [x] **S2**: Include navigation metadata in MDX output for slide transitions.
+  - [x] **S3**: Preserve front matter in generated MDX files.
+  - [x] **S4**: Handle embedded assets and maintain proper references.
 
 - [ ] **F12: Basic Generator (HTML)** - Extend the `Generator` to output `SlideNodes` as HTML.
 
