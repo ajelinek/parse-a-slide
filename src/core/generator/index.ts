@@ -1,0 +1,1 @@
+export { toMdx } from '../generateMdx'
