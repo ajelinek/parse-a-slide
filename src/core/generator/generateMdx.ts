@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml'
-import { SlideNode } from '../types/slide'
+import { SlideNode } from '../../types/slide'
 
 export function toMdx(slideNode: SlideNode): string {
   const frontMatter: Record<string, any> = {}

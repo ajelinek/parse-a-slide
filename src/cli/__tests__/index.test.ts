@@ -5,7 +5,12 @@ import { resolve } from 'path'
 
 // Mock the build handler module before it's imported by the command module
 vi.mock('../handlers/build-handler', () => ({
-  buildHandler: vi.fn(),
+  buildHandler: vi.fn().mockResolvedValue({
+    isOk: () => true,
+    isErr: () => false,
+    value: undefined,
+    error: null
+  }),
 }))
 
 // Import the mocked handler

@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { SlideNode, SlideNavigation } from '../../types/slide'
 import { FrontMatter } from '../../types/frontmatter'
-import { toMdx } from '../generateMdx'
+import { toMdx } from '../generator/generateMdx'
 
 function setUp() {
   return { toMdx }
