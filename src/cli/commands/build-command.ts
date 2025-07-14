@@ -67,6 +67,11 @@ export const buildCommand = {
   // Convert yargs args to clean options before passing to handler
   handler: async (args: ArgumentsCamelCase<ParsedBuildArgs>) => {
     const options = convertToHandlerOptions(args)
-    return buildHandler(options)
+    const result = await buildHandler(options)
+    
+    if (result.isErr()) {
+      console.error('Build failed:', result.error.message)
+      process.exit(1)
+    }
   },
 }

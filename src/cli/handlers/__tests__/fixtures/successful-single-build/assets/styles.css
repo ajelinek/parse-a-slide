@@ -1,0 +1,16 @@
+/* Test CSS file for asset copying functionality */
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.slide {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1 {
+  color: #333;
+  border-bottom: 2px solid #007acc;
+}
