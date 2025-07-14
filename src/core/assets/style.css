@@ -1,0 +1,47 @@
+/* Navigation Widget */
+#nav-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.nav-arrow, .nav-menu {
+  color: white;
+  text-decoration: none;
+  font-size: 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Context Menu */
+#context-menu {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  z-index: 1000;
+}
+
+#context-menu.hidden {
+  display: none;
+}
+
+#context-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#context-menu ul ul {
+  padding-left: 20px;
+}

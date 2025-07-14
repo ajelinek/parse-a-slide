@@ -27,16 +27,15 @@ flowchart TD
 
 ## 3. Change Summary Table
 
-| Module/File Path                     | Item Name          | Status    | Description                                                                  |
-| :----------------------------------- | :----------------- | :-------- | :--------------------------------------------------------------------------- |
-| `src/core/generateHtml.ts`           | `toHtml`           | `New`     | New module to generate HTML using Handlebars, Marked, and Highlight.js.      |
-| `src/core/templates/slide.hbs`       | `slide.hbs`        | `New`     | New Handlebars template for the individual slide structure.                  |
-| `src/core/assets/tokens.css`         | `tokens.css`       | `New`     | New CSS file for custom styling variables.                                   |
-| `src/core/assets/style.css`          | `style.css`        | `New`     | New CSS for the navigation widget and context menu.                          |
-| `src/core/assets/main.js`            | `main.js`          | `New`     | New JavaScript file for context menu and navigation interactivity.           |
-| `src/core/generator.ts`              | `exports`          | `Updated` | Export the new `toHtml` function from the generator index.                   |
-| `src/core/types.ts`                  | `Format`           | `Updated` | Add 'html' to the list of supported output formats.                          |
-| `package.json`                       | `dependencies`     | `Updated` | Add `handlebars`, `marked`, and `highlight.js`.                              |
+| Module/File Path                      | Item Name          | Status    | Description                                                                  |
+| :------------------------------------ | :----------------- | :-------- | :--------------------------------------------------------------------------- |
+| `package.json`                        | `dependencies`     | `Updated` | Add `handlebars`, `marked`, and `highlight.js`.                              |
+| `src/core/generator/generateHtml.ts`  | `toHtml`           | `New`     | New module to generate HTML from a `SlideNode` tree.                         |
+| `src/core/generator/templates/slide.hbs` | `slide.hbs`        | `New`     | New Handlebars template for the individual slide structure.                  |
+| `src/core/assets/tokens.css`          | `tokens.css`       | `New`     | New CSS file for custom styling variables.                                   |
+| `src/core/assets/style.css`           | `style.css`        | `New`     | New CSS for the navigation widget and context menu.                          |
+| `src/core/assets/main.js`             | `main.js`          | `New`     | New JavaScript file for context menu and navigation interactivity.           |
+| `src/core/generator/index.ts`         | `exports`          | `Updated` | Export the new `toHtml` function from the generator index.                   |
 
 ## 4. UI/UX Layout and Design
 
@@ -91,90 +90,68 @@ When the user clicks the 'Menu' button, a hierarchical list of all slides will a
 
 ## 5. Implementation Details
 
-This section details the new and updated modules, functions, and types required to implement the HTML generator.
+This section details the new and updated modules required to implement the HTML generator.
 
-#### 4.1. New Dependencies (`package.json`)
-
-- **`handlebars`**: A powerful templating engine to separate HTML structure from generation logic.
-- **`marked`**: A robust markdown parser to convert slide content to HTML.
-- **`highlight.js`**: A syntax highlighter for code blocks.
-
-#### 4.2. `build-command.ts` (`src/cli/commands/build-command.ts`)
+#### 5.1. Dependency Updates (`package.json`)
 
 - **Status**: Existing
-- **Updated Item**: `BuildCommand`
-  - **Purpose**: To add a new `--out-dir` option for specifying the HTML output directory, which will default to `./dist_slides`.
+- **Description**: Add the following `dependencies` to support HTML generation, templating, and syntax highlighting.
+  - `handlebars`: For processing Handlebars templates.
+  - `marked`: For converting Markdown content to HTML.
+  - `highlight.js`: For code syntax highlighting.
 
-#### 5.3. `types.ts` (`src/core/types.ts`)
-
-- **Status**: Existing
-- **Updated Types**:
-  - **`Format`**: Add `html` to the list of supported formats.
-    ```typescript
-    export type Format = 'md' | 'mdx' | 'html';
-    ```
-
-#### 5.4. `generateHtml.ts` (`src/core/generateHtml.ts`)
+#### 5.2. Core HTML Generator (`src/core/generator/generateHtml.ts`)
 
 - **Status**: New
-- **New Function**: **`toHtml(nodes: SlideNode[], options: GeneratorOptions): void`**
-  - **Purpose**: Transforms `SlideNode` objects into a static HTML presentation, using Handlebars for templating, Marked for markdown conversion, and Highlight.js for syntax highlighting.
+- **New Function**: `toHtml(nodes: SlideNode[], options: GeneratorOptions): void`
+  - **Purpose**: To orchestrate the HTML generation process. It will traverse the `SlideNode` tree, render each slide using a Handlebars template, and write the output to the specified directory.
   - **Implementation Approach**:
-    - Determine the output directory from `options.outDir` or default to `./dist_slides`.
-    - Read the `slide.hbs` template file.
-    - Compile the Handlebars template.
-    - For each `SlideNode`:
-      - Convert the slide's markdown content to HTML using `marked`.
-      - Apply syntax highlighting to code blocks in the generated HTML using `highlight.js`.
-      - Prepare the data object for Handlebars, including the HTML content, navigation links (Next/Previous), theme (from frontmatter), and page title.
-      - Render the final HTML by passing the data to the compiled Handlebars template.
-      - Write the HTML to the appropriate file in the output directory.
-    - Copy Pico.css, `tokens.css`, and all referenced assets to the output directory, ensuring all links are relative.
-  - **Accessibility**: Ensure all generated HTML is accessibility-compliant by using semantic tags (e.g., `<nav>`, `<main>`, `<section>`) and ARIA roles where appropriate in the Handlebars template.
+    - Iterate through each `SlideNode` in the provided tree.
+    - For each node, determine the correct output filename (e.g., `index.html` for the first slide, `slide-1.html`, etc.).
+    - Convert the slide's Markdown content to HTML using `marked`.
+    - Use `highlight.js` to apply syntax highlighting to any code blocks within the converted HTML.
+    - Prepare a data object for the template that includes the slide content, navigation links (`next` and `prev` URLs), and a hierarchical list of all slides for the context menu.
+    - Render the final HTML by passing this data to a compiled Handlebars template (`slide.hbs`).
+    - Write the rendered HTML to the corresponding file in the output directory.
+  - **Error Handling**: The function will include robust error handling to catch and report file system errors, such as a lack of write permissions.
 
-#### 5.5. `slide.hbs` (`src/core/templates/slide.hbs`)
+#### 5.3. Handlebars Template (`src/core/generator/templates/slide.hbs`)
 
 - **Status**: New
-- **Purpose**: A Handlebars template defining the structure of each HTML slide page.
+- **Purpose**: To define the reusable HTML structure for every slide page.
 - **Structure Outline**:
   ```html
   <!DOCTYPE html>
   <html>
     <head>
       <title>{{title}}</title>
-      <link rel="stylesheet" href="pico.min.css">
-      <link rel="stylesheet" href="style.css">
-      <link rel="stylesheet" href="tokens.css">
+      <link rel="stylesheet" href="_assets/style.css">
+      <link rel="stylesheet" href="_assets/tokens.css">
     </head>
-    <body data-theme="{{theme}}">
-      <main class="container">{{{content}}}</main>
-      <div id="nav-widget">...</div>
+    <body>
+      <main>{{{content}}}</main>
+      <nav id="nav-widget">...</nav>
       <div id="context-menu" class="hidden">...</div>
       <script id="slide-data" type="application/json">{{{slideHierarchyJson}}}</script>
-      <script src="main.js"></script>
+      <script src="_assets/main.js"></script>
     </body>
   </html>
   ```
 
-#### 5.6. `main.js` (`src/core/assets/main.js`)
+#### 5.4. Frontend Assets (`src/core/assets/`)
 
 - **Status**: New
-- **Purpose**: To handle all client-side interactivity for the navigation widget and context menu.
-- **Implementation Approach**:
-  - Add event listener to the 'Menu' button to toggle the visibility of the context menu.
-  - On page load, parse the JSON data from the `<script id="slide-data">` tag.
-  - Dynamically generate the hierarchical list of slides and inject it into the context menu container.
-  - Implement logic to show/hide the scroll indicator based on content height vs. viewport height.
+- **Purpose**: To provide styling and interactivity for the generated HTML presentation.
+- **Files**:
+  - `main.js`: Handles interactivity for the navigation widget and context menu. It will read from the `slide-data` script tag to build the menu.
+  - `style.css`: Contains all styles for the presentation, including the navigation controls and context menu.
+  - `tokens.css`: Holds CSS variables for theming.
+- **Asset Handling**: The existing `asset-copier.ts` utility will be used to copy these files, along with any user assets (e.g., images), to an `_assets` subfolder in the output directory. All paths in the HTML will be updated to be relative to this folder.
 
-#### 5.7. `style.css` (`src/core/assets/style.css`)
+#### 5.5. Generator Index (`src/core/generator/index.ts`)
 
-- **Status**: New
-- **Purpose**: To contain the CSS for the gamepad navigation and scroll indicator.
-
-#### 5.8. `tokens.css` (`src/core/assets/tokens.css`)
-
-- **Status**: New
-- **Purpose**: To hold all custom CSS variables for easy theming and customization. It can be initially empty.
+- **Status**: Existing
+- **Description**: The `index.ts` file will be updated to export the new `toHtml` function, making it available to the CLI and other parts of the application.
 
 ## 5. Test Scenarios (Gherkin)
 

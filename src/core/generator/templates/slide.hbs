@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{title}}</title>
+  <link rel="stylesheet" href="{{assetsPath}}/style.css">
+  <link rel="stylesheet" href="{{assetsPath}}/tokens.css">
+</head>
+<body>
+  <main role="main" aria-label="Slide content">{{{content}}}</main>
+
+  <nav id="nav-widget" role="navigation" aria-label="Slide navigation">
+    {{#if nav.prevUrl}}
+      <a href="{{nav.prevUrl}}" class="nav-arrow prev" aria-label="Previous slide" title="Previous slide">&lt;</a>
+    {{/if}}
+    <button class="nav-menu" aria-label="Open slide menu" title="Open slide menu" aria-expanded="false" aria-controls="context-menu">M</button>
+    {{#if nav.nextUrl}}
+      <a href="{{nav.nextUrl}}" class="nav-arrow next" aria-label="Next slide" title="Next slide">&gt;</a>
+    {{/if}}
+  </nav>
+
+  <div id="context-menu" class="hidden" role="dialog" aria-label="Slide navigation menu" aria-hidden="true">
+    <!-- Context menu will be injected here -->
+  </div>
+
+  <script id="slide-data" type="application/json">{{{slideHierarchyJson}}}</script>
+  <script src="{{assetsPath}}/main.js"></script>
+</body>
+</html>
