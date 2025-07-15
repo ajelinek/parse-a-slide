@@ -21,7 +21,11 @@ export async function inflate(metadata: PresentationMetadata): PasAsyncResult<Pr
     return err(entryContentResult.error)
   }
 
-  const { frontMatter: baseFrontMatter } = parse(entryContentResult.value)
+  const parseResult = parse(entryContentResult.value)
+  if (parseResult.isErr()) {
+    return err(parseResult.error)
+  }
+  const { frontMatter: baseFrontMatter } = parseResult.value
 
   // Process all fragments
   const fragments: Fragment[] = []
@@ -31,7 +35,11 @@ export async function inflate(metadata: PresentationMetadata): PasAsyncResult<Pr
       return err(rawContentResult.error)
     }
 
-    const { frontMatter: fragmentFrontMatter, content } = parse(rawContentResult.value)
+    const fragmentParseResult = parse(rawContentResult.value)
+    if (fragmentParseResult.isErr()) {
+      return err(fragmentParseResult.error)
+    }
+    const { frontMatter: fragmentFrontMatter, content } = fragmentParseResult.value
 
     // Merge front matter: base + fragment-specific
     const finalFrontMatter = merge(baseFrontMatter, fragmentFrontMatter)

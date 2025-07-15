@@ -4,9 +4,11 @@ import { inflate } from '../../core/presentation-inflator'
 import { parsePresentation } from '../../core/parser'
 import { copySourceAssets } from '../../core/asset-copier'
 import { toHtml } from '../../core/generator/generateHtml'
+import { toMdx } from '../../core/generator/generateMdx'
 import { Logger } from '../../utils/logger'
 import { LogLevel } from '../../types/logger'
 import { PasAsyncResult, ok, err, createError, ErrorCode } from '../../utils/error'
+import { cleanDir } from '../../utils/fs-utils'
 
 /**
  * Handler function for the build command
@@ -15,6 +17,16 @@ import { PasAsyncResult, ok, err, createError, ErrorCode } from '../../utils/err
 export async function buildHandler(options: BuildCommandOptions): PasAsyncResult<void> {
   const logLevel = options.quiet ? LogLevel.ERROR : options.verbose ? LogLevel.DEBUG : LogLevel.INFO
   const logger = Logger.getInstance(logLevel)
+
+  // Clean output directory if requested
+  if (options.clean) {
+    logger.info(`Cleaning output directory: ${options.outputDir}`)
+    const cleanResult = await cleanDir(options.outputDir)
+    if (cleanResult.isErr()) {
+      return logError(cleanResult, `Failed to clean output directory ${options.outputDir}:`)
+    }
+    logger.info('Output directory cleaned successfully')
+  }
 
   // Main execution flow
   for (const inputPath of options.input) {
@@ -83,6 +95,36 @@ export async function buildHandler(options: BuildCommandOptions): PasAsyncResult
         sourceDir: presentationMetadata.fullPath,
         outputDir: options.outputDir,
       })
+    } else if (options.format === 'mdx') {
+      // Generate MDX files for each slide
+      const fs = await import('fs')
+      const path = await import('path')
+      
+      for (let i = 0; i < slideNodes.length; i++) {
+        const slideNode = slideNodes[i]
+        const mdxContent = toMdx(slideNode)
+        const fileName = `slide-${i + 1}.mdx`
+        const filePath = path.join(options.outputDir, fileName)
+        
+        await fs.promises.writeFile(filePath, mdxContent, 'utf8')
+      }
+      
+      logger.info(`Generated ${slideNodes.length} MDX slides in ${options.outputDir}`)
+    } else if (options.format === 'md') {
+      // Generate MD files for each slide (without frontmatter)
+      const fs = await import('fs')
+      const path = await import('path')
+      
+      for (let i = 0; i < slideNodes.length; i++) {
+        const slideNode = slideNodes[i]
+        const mdContent = slideNode.content // Just the content without frontmatter
+        const fileName = `slide-${i + 1}.md`
+        const filePath = path.join(options.outputDir, fileName)
+        
+        await fs.promises.writeFile(filePath, mdContent, 'utf8')
+      }
+      
+      logger.info(`Generated ${slideNodes.length} MD slides in ${options.outputDir}`)
     } else {
       logger.info(`Format ${options.format} generation not yet implemented`)
     }

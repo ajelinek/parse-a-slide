@@ -17,13 +17,16 @@ This is the main content.`
 
   const result = parse(rawContent)
 
-  expect(result.frontMatter).toEqual({
-    title: 'My Slide Title',
-    description: 'A test slide',
-    theme: 'dark',
-  })
-  expect(result.content.trim()).toBe(`# Slide Content
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value.frontMatter).toEqual({
+      title: 'My Slide Title',
+      description: 'A test slide',
+      theme: 'dark',
+    })
+    expect(result.value.content.trim()).toBe(`# Slide Content
 This is the main content.`)
+  }
 })
 
 test('parse should handle content without front matter', () => {
@@ -33,8 +36,11 @@ No front matter here.`
 
   const result = parse(rawContent)
 
-  expect(result.frontMatter).toEqual({})
-  expect(result.content).toBe(rawContent)
+  expect(result.isOk()).toBe(true)
+  if (result.isOk()) {
+    expect(result.value.frontMatter).toEqual({})
+    expect(result.value.content).toBe(rawContent)
+  }
 })
 
 test('merge should merge two front matter objects with override winning conflicts', () => {

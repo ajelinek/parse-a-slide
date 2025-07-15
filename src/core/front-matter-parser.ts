@@ -1,14 +1,20 @@
 import matter from 'gray-matter'
 import { FrontMatter } from '../types/frontmatter'
+import { PasResult, ok, err, createError, ErrorCode } from '../utils/error'
 
 /**
  * Parses raw file content to separate YAML front matter from the main content.
  * @param rawContent The raw string content of a file.
- * @returns An object containing the parsed front matter and the content without front matter.
+ * @returns A PasResult containing the parsed front matter and content, or an error if YAML parsing fails.
  */
-export function parse(rawContent: string): { frontMatter: FrontMatter; content: string } {
-  const { data, content } = matter(rawContent)
-  return { frontMatter: data, content }
+export function parse(rawContent: string): PasResult<{ frontMatter: FrontMatter; content: string }> {
+  try {
+    const { data, content } = matter(rawContent)
+    return ok({ frontMatter: data, content })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown YAML parsing error'
+    return err(createError(`Failed to parse YAML front matter: ${errorMessage}`, ErrorCode.PARSER_ERROR))
+  }
 }
 
 /**
