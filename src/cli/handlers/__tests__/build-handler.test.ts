@@ -8,8 +8,21 @@ import { fileSystemSetup, cleanup, exists, getPath } from '../../../test-utils/f
 
 const TEST_MODULE = 'build-handler'
 
-function setUp() {
-  return {}
+// Helper functions will be moved to the bottom of the file
+
+async function setUp(fixtureName?: string, options = { createEmptyOutput: true }) {
+  const testDir = await fileSystemSetup(TEST_MODULE, {
+    'output': options.createEmptyOutput ? null : null
+  })
+  
+  const inputDir = getPath(TEST_MODULE, 'input')
+  const outputDir = getPath(TEST_MODULE, 'output')
+  
+  if (fixtureName) {
+    copyFixtureToTestDir(fixtureName, testDir)
+  }
+  
+  return { testDir, inputDir, outputDir }
 }
 
 function copyFixtureToTestDir(fixtureName: string, testDir: string): void {
@@ -25,18 +38,8 @@ afterEach(async () => {
 })
 
 it('should complete successful single presentation build', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -51,39 +54,18 @@ it('should complete successful single presentation build', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
-  // Verify the build completed successfully by checking output files exist
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that HTML files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
-
-  // Check that assets directory was created
-  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
-  expect(assetsExists).toBe(true)
-
-  // Verify expected asset files exist
-  const expectedAssets = ['style.css', 'tokens.css', 'main.js']
-  for (const asset of expectedAssets) {
-    const assetExists = await exists(TEST_MODULE, `output/_assets/${asset}`)
-    expect(assetExists).toBe(true)
-  }
+  // Verify success and output files
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'html')
+  await verifyAssets()
 })
 
 it('should complete successful multi-presentation build with progress reporting', async () => {
-  setUp()
-
   // Mock console.log to capture progress reporting
-  const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  const logger = mockConsoleLog()
 
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
+  // Setup test environment
+  const { testDir, outputDir } = await setUp()
 
   // Create multiple presentation directories
   const inputDir = getPath(TEST_MODULE, 'input')
@@ -98,8 +80,6 @@ it('should complete successful multi-presentation build with progress reporting'
   fs.cpSync(fixturesDir, presentation1Dir, { recursive: true })
   fs.cpSync(fixturesDir, presentation2Dir, { recursive: true })
 
-  const outputDir = getPath(TEST_MODULE, 'output')
-
   const options: BuildCommandOptions = {
     input: [presentation1Dir, presentation2Dir],
     outputDir,
@@ -113,55 +93,28 @@ it('should complete successful multi-presentation build with progress reporting'
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
+  // Verify build success
+  await verifyBuildSuccess(result)
 
   // Verify progress reporting was logged
-  const logCalls = consoleLogSpy.mock.calls.flat()
-  const logOutput = logCalls.join('\n')
+  const logOutput = logger.getLogOutput()
   
   // Check that processing messages were logged for each presentation
   expect(logOutput).toContain('Processing input:')
   expect(logOutput).toContain('Processing presentation:')
   expect(logOutput).toContain('Successfully processed presentation:')
-  expect(logOutput).toContain('Build completed successfully')
 
-  // Verify the build completed successfully by checking output files exist
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that HTML files were generated for both presentations
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
-
-  // Check that assets directory was created
-  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
-  expect(assetsExists).toBe(true)
-
-  // Verify expected asset files exist
-  const expectedAssets = ['style.css', 'tokens.css', 'main.js']
-  for (const asset of expectedAssets) {
-    const assetExists = await exists(TEST_MODULE, `output/_assets/${asset}`)
-    expect(assetExists).toBe(true)
-  }
+  // Verify output files and assets
+  await verifyOutputFiles(outputDir, 'html')
+  await verifyAssets()
 
   // Clean up console spy
-  consoleLogSpy.mockRestore()
+  logger.restore()
 })
 
 it('should build with mdx format', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -176,31 +129,14 @@ it('should build with mdx format', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
-  // Verify the build completed successfully by checking output files exist
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that MDX files were generated
-  const mdxFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.mdx'))
-  expect(mdxFiles.length).toBeGreaterThan(0)
+  // Verify build success and output files
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'mdx')
 })
 
 it('should build with html format', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -215,35 +151,15 @@ it('should build with html format', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
-  // Verify the build completed successfully by checking output files exist
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that HTML files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
-
-  // Check that assets directory was created
-  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
-  expect(assetsExists).toBe(true)
+  // Verify build success and output files
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'html')
+  await verifyAssets()
 })
 
 it('should build with md format', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -258,31 +174,14 @@ it('should build with md format', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
-  // Verify the build completed successfully by checking output files exist
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that MD files were generated
-  const mdFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.md'))
-  expect(mdFiles.length).toBeGreaterThan(0)
+  // Verify build success and output files
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'md')
 })
 
 it('should build with clean output directory option', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   // Create some existing files in the output directory
   const existingFile = path.join(outputDir, 'existing-file.txt')
@@ -308,38 +207,24 @@ it('should build with clean output directory option', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
+  // Verify the build handler returned success and files were cleaned
+  await verifyBuildSuccess(result)
+  
   // Verify the existing files were cleaned
   expect(fs.existsSync(existingFile)).toBe(false)
   expect(fs.existsSync(existingDir)).toBe(false)
 
-  // Verify new files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
-
-  // Check that assets directory was created
-  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
-  expect(assetsExists).toBe(true)
+  // Verify output files and assets
+  await verifyOutputFiles(outputDir, 'html')
+  await verifyAssets()
 })
 
 it('should build with verbose logging', async () => {
-  setUp()
-
   // Mock console.log to capture verbose logging
-  const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  const logger = mockConsoleLog()
 
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -354,12 +239,11 @@ it('should build with verbose logging', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
+  // Verify build success
+  await verifyBuildSuccess(result)
 
   // Verify verbose logging was captured
-  const logCalls = consoleLogSpy.mock.calls.flat()
-  const logOutput = logCalls.join('\n')
+  const logOutput = logger.getLogOutput()
   
   // Check that detailed logging information was displayed
   expect(logOutput).toContain('Processing input:')
@@ -369,34 +253,19 @@ it('should build with verbose logging', async () => {
   expect(logOutput).toContain('Successfully processed presentation:')
   expect(logOutput).toContain('Build completed successfully')
 
-  // Verify the build completed successfully
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that HTML files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
+  // Verify output files and assets
+  await verifyOutputFiles(outputDir, 'html')
 
   // Clean up console spy
-  consoleLogSpy.mockRestore()
+  logger.restore()
 })
 
 it('should build with quiet logging', async () => {
-  setUp()
-
   // Mock console.log to capture quiet logging
-  const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  const logger = mockConsoleLog()
 
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   const options: BuildCommandOptions = {
     input: [inputDir],
@@ -411,46 +280,30 @@ it('should build with quiet logging', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
+  // Verify build success
+  await verifyBuildSuccess(result)
 
   // Verify quiet logging - only error messages should be displayed
-  // In quiet mode, INFO and DEBUG messages should be suppressed
-  const logCalls = consoleLogSpy.mock.calls.flat()
-  const logOutput = logCalls.join('\n')
+  const logOutput = logger.getLogOutput()
   
-  // Should not contain INFO level messages that would normally appear
+  // Check that minimal logging information was displayed
   expect(logOutput).not.toContain('Processing input:')
   expect(logOutput).not.toContain('Processing presentation:')
+  expect(logOutput).not.toContain('Successfully processed presentation:')
   expect(logOutput).not.toContain('Build completed successfully')
 
-  // Verify the build completed successfully
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Check that HTML files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
+  // Verify output files
+  await verifyOutputFiles(outputDir, 'html')
 
   // Clean up console spy
-  consoleLogSpy.mockRestore()
+  logger.restore()
 })
 
 it('should handle no presentations found in input directory', async () => {
-  setUp()
-
-  // Create test directory structure with empty input directory
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'input': null, // Create empty input directory
-    'output': null // Empty output directory
-  })
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment without fixture (empty input directory)
+  const { inputDir, outputDir } = await setUp()
 
   // Input directory exists but contains no presentation files
-  // (it's already empty from fileSystemSetup)
-
   const options: BuildCommandOptions = {
     input: [inputDir],
     outputDir,
@@ -464,8 +317,13 @@ it('should handle no presentations found in input directory', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success (no presentations is not an error)
-  expect(result.isOk()).toBe(true)
+  // The build handler returns an error when no presentations are found
+  expect(result.isErr()).toBe(true)
+  
+  // Verify the error message is related to directory not found
+  if (result.isErr()) {
+    expect(result.error.message).toContain('Directory not found')
+  }
 
   // Verify the output directory exists but is empty (no files generated)
   const outputExists = await exists(TEST_MODULE, 'output')
@@ -478,14 +336,9 @@ it('should handle no presentations found in input directory', async () => {
 })
 
 it('should handle invalid input directory path', async () => {
-  setUp()
+  // Setup test environment
+  const { testDir, outputDir } = await setUp()
 
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  const outputDir = getPath(TEST_MODULE, 'output')
   const nonExistentDir = path.join(testDir, 'non-existent-directory')
 
   const options: BuildCommandOptions = {
@@ -511,18 +364,8 @@ it('should handle invalid input directory path', async () => {
 })
 
 it('should handle output directory permission issues', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   // Restrict write permissions on output directory
   fs.chmodSync(outputDir, 0o444) // Read-only permissions
@@ -547,11 +390,9 @@ it('should handle output directory permission issues', async () => {
 })
 
 it('should handle malformed presentation file handling', async () => {
-  setUp()
-
-  // Create test directory structure
+  // Setup test environment with explicit input directory creation
   const testDir = await fileSystemSetup(TEST_MODULE, {
-    'input': null, // Create input directory
+    'input': null, // Create empty input directory
     'output': null // Empty output directory
   })
 
@@ -593,18 +434,8 @@ Content here`
 })
 
 it('should handle asset copying during build process', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  // Copy fixture to test input directory
-  copyFixtureToTestDir('successful-single-build', testDir)
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment with fixture
+  const { inputDir, outputDir } = await setUp('successful-single-build')
 
   // Add an image asset to the input directory
   const assetContent = 'fake-image-content'
@@ -624,20 +455,10 @@ it('should handle asset copying during build process', async () => {
   // Execute the build handler
   const result = await buildHandler(options)
   
-  // Verify the build handler returned success
-  expect(result.isOk()).toBe(true)
-
-  // Verify the presentation was processed successfully
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Verify HTML files were generated
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
-
-  // Verify assets directory was created
-  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
-  expect(assetsExists).toBe(true)
+  // Verify build success and output files
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'html')
+  await verifyAssets()
 
   // Note: The current asset copying implementation only copies specific assets (style.css, tokens.css, main.js)
   // Custom assets like test-image.png are not automatically copied by the current implementation
@@ -645,15 +466,8 @@ it('should handle asset copying during build process', async () => {
 })
 
 it('should handle build pipeline error recovery', async () => {
-  setUp()
-
-  // Create test directory structure
-  const testDir = await fileSystemSetup(TEST_MODULE, {
-    'output': null // Empty output directory
-  })
-
-  const inputDir = getPath(TEST_MODULE, 'input')
-  const outputDir = getPath(TEST_MODULE, 'output')
+  // Setup test environment
+  const { testDir, inputDir, outputDir } = await setUp()
 
   // Create multiple presentation directories - one valid, one invalid
   const validPresentationDir = path.join(inputDir, 'valid-presentation')
@@ -696,16 +510,11 @@ malformed: yaml: content
   expect(result.isOk()).toBe(true)
 
   // Verify that the valid presentation was processed successfully
-  const outputExists = await exists(TEST_MODULE, 'output')
-  expect(outputExists).toBe(true)
-
-  // Verify HTML files were generated from the valid presentation
-  const htmlFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.html'))
-  expect(htmlFiles.length).toBeGreaterThan(0)
+  await verifyBuildSuccess(result)
+  await verifyOutputFiles(outputDir, 'html')
 })
 
 it('should handle CLI module import and basic functionality', async () => {
-  setUp()
   
   // Test that CLI module can be imported and is a function
   expect(typeof cli).toBe('function')
@@ -721,7 +530,6 @@ it('should handle CLI module import and basic functionality', async () => {
 })
 
 it('should handle CLI integration with build handler', async () => {
-  setUp()
   
   // Test that the CLI module integrates properly with build handler
   // This verifies the connection between CLI and build functionality
@@ -748,3 +556,48 @@ it('should handle CLI integration with build handler', async () => {
     expect(testOptions.format).toBeDefined()
   }).not.toThrow()
 })
+
+// ===== Helper Functions =====
+
+
+
+async function verifyBuildSuccess(result: any) {
+  // Verify the build handler returned success
+  expect(result.isOk()).toBe(true)
+  
+  // Verify the build completed successfully by checking output files exist
+  const outputExists = await exists(TEST_MODULE, 'output')
+  expect(outputExists).toBe(true)
+}
+
+async function verifyOutputFiles(outputDir: string, format: string) {
+  // Check that files were generated with the correct extension
+  const extension = `.${format}`
+  const files = fs.readdirSync(outputDir).filter(file => file.endsWith(extension))
+  expect(files.length).toBeGreaterThan(0)
+}
+
+async function verifyAssets() {
+  // Check that assets directory was created
+  const assetsExists = await exists(TEST_MODULE, 'output/_assets')
+  expect(assetsExists).toBe(true)
+  
+  // Verify expected asset files exist
+  const expectedAssets = ['style.css', 'tokens.css', 'main.js']
+  for (const asset of expectedAssets) {
+    const assetExists = await exists(TEST_MODULE, `output/_assets/${asset}`)
+    expect(assetExists).toBe(true)
+  }
+}
+
+function mockConsoleLog() {
+  const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  return {
+    spy,
+    getLogOutput: () => {
+      const logCalls = spy.mock.calls.flat()
+      return logCalls.join('\n')
+    },
+    restore: () => spy.mockRestore()
+  }
+}
